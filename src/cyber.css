@@ -1,0 +1,144 @@
+/* Theme switch + 3D map (both themes) */
+.hdr-right { display: flex; align-items: center; gap: 10px; }
+.themebtn { background: none; border: 1px solid var(--gold-dim); color: var(--gold); font-size: 0.7rem; letter-spacing: 0.08em; padding: 4px 8px; }
+.map3d { width: 100%; height: 440px; border: 1px solid var(--gold-dim); background: radial-gradient(ellipse at 50% 100%, #1a0a33, #07060f 70%); overflow: hidden; touch-action: pan-y; }
+.map3d canvas { display: block; width: 100%; height: 100%; }
+
+/* ============ CYBERPUNK ============ */
+:root[data-theme='cyber'] {
+  --bg: #07060f;
+  --stone: #0d0a1f;
+  --stone-2: #14102e;
+  --gold: #00f0ff;
+  --gold-dim: #0b6b78;
+  --parch: #0a0f22;
+  --ink: #d9fbff;
+  --text: #dff7ff;
+  --muted: #8a8fb8;
+  --pos: #39ff88;
+  --neg: #ff3d7f;
+  --hot: #ff2bd6;
+  --amber: #fcee0a;
+  --font: 'Cascadia Mono', 'Cascadia Code', Consolas, 'SF Mono', ui-monospace, monospace;
+}
+[data-theme='cyber'] body { font-size: 14.5px; background: var(--bg); }
+[data-theme='cyber'] body::before {
+  content: ''; position: fixed; left: -50%; right: -50%; bottom: 0; height: 55vh; z-index: -1; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 43, 214, 0.45) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(0, 240, 255, 0.35) 0 1px, transparent 1px 48px);
+  transform: perspective(380px) rotateX(64deg); transform-origin: 50% 100%;
+  mask-image: linear-gradient(to top, #000 10%, transparent 95%);
+  animation: gridmove 6s linear infinite;
+}
+@keyframes gridmove { to { background-position: 0 0, 0 48px; } }
+[data-theme='cyber'] body::after {
+  content: ''; position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 120px rgba(255, 43, 214, 0.12);
+}
+[data-theme='cyber'] .title {
+  font-size: 1.25rem; font-weight: 700; letter-spacing: 0.14em; color: #fff;
+  text-shadow: 2px 0 var(--hot), -2px 0 var(--gold), 0 0 14px rgba(0, 240, 255, 0.7);
+  animation: glitch 5s steps(1) infinite;
+}
+@keyframes glitch {
+  0%, 92%, 100% { transform: none; }
+  93% { transform: translate(-2px, 1px) skewX(6deg); text-shadow: -3px 0 var(--hot), 3px 0 var(--gold); }
+  95% { transform: translate(2px, -1px); text-shadow: 3px 0 var(--hot), -3px 0 var(--gold); }
+  97% { transform: translate(-1px, 0) skewX(-4deg); }
+}
+[data-theme='cyber'] .sub { color: var(--hot); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.7rem; }
+[data-theme='cyber'] .xp { border: 1px solid var(--gold); background: #05040c; box-shadow: 0 0 8px rgba(0, 240, 255, 0.5); }
+[data-theme='cyber'] .xp-fill { background: linear-gradient(90deg, var(--hot), var(--gold)); box-shadow: 0 0 10px var(--gold); }
+[data-theme='cyber'] .themebtn { border-color: var(--hot); color: var(--hot); font-family: var(--font); }
+
+[data-theme='cyber'] .panel {
+  position: relative; background: linear-gradient(155deg, rgba(0, 240, 255, 0.07), rgba(255, 43, 214, 0.05) 55%, rgba(10, 8, 24, 0.9));
+  border: 1px solid var(--gold); outline: none; backdrop-filter: blur(3px);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.28), inset 0 0 22px rgba(0, 240, 255, 0.07);
+}
+[data-theme='cyber'] .panel::before, [data-theme='cyber'] .panel::after { content: ''; position: absolute; width: 16px; height: 16px; pointer-events: none; }
+[data-theme='cyber'] .panel::before { top: -3px; left: -3px; border-top: 3px solid var(--hot); border-left: 3px solid var(--hot); }
+[data-theme='cyber'] .panel::after { bottom: -3px; right: -3px; border-bottom: 3px solid var(--hot); border-right: 3px solid var(--hot); }
+[data-theme='cyber'] .panel h2 {
+  color: var(--gold); text-shadow: 0 0 8px rgba(0, 240, 255, 0.8); border-bottom: 1px solid rgba(0, 240, 255, 0.35);
+  letter-spacing: 0.16em; font-size: 0.85rem; justify-content: flex-start; gap: 6px;
+}
+[data-theme='cyber'] .panel h2::before { content: '//'; color: var(--hot); }
+[data-theme='cyber'] .panel h2 > :last-child:not(:first-child) { margin-left: auto; }
+
+[data-theme='cyber'] .list li { border-bottom: 1px dashed rgba(0, 240, 255, 0.22); }
+[data-theme='cyber'] .check { color: var(--gold); text-shadow: 0 0 8px var(--gold); }
+[data-theme='cyber'] .list li.done .check { color: var(--pos); text-shadow: 0 0 8px var(--pos); }
+[data-theme='cyber'] .chip { background: #05040c; border-color: var(--hot); color: var(--hot); }
+[data-theme='cyber'] .time { color: var(--amber); }
+
+[data-theme='cyber'] input, [data-theme='cyber'] select, [data-theme='cyber'] textarea {
+  background: var(--parch); color: var(--ink); border: 1px solid var(--gold-dim); border-radius: 0; font-family: var(--font);
+}
+[data-theme='cyber'] input:focus, [data-theme='cyber'] select:focus, [data-theme='cyber'] textarea:focus {
+  outline: none; border-color: var(--gold); box-shadow: 0 0 10px rgba(0, 240, 255, 0.55);
+}
+[data-theme='cyber'] input::placeholder, [data-theme='cyber'] textarea::placeholder { color: #55597f; }
+[data-theme='cyber'] input[type='date'] { color-scheme: dark; }
+[data-theme='cyber'] .btn {
+  background: transparent; color: var(--gold); border: 1px solid var(--gold); font-family: var(--font);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.45), inset 0 0 10px rgba(0, 240, 255, 0.15); text-shadow: 0 0 6px var(--gold);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+[data-theme='cyber'] .btn:hover:not(:disabled) { background: var(--gold); color: #021014; text-shadow: none; }
+[data-theme='cyber'] .btn:active { transform: translateY(1px); box-shadow: 0 0 4px var(--gold); }
+[data-theme='cyber'] .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+[data-theme='cyber'] .btn.danger { color: var(--neg); border-color: var(--neg); background: transparent; box-shadow: 0 0 10px rgba(255, 61, 127, 0.4); text-shadow: 0 0 6px var(--neg); }
+[data-theme='cyber'] .seg { border: 1px solid var(--gold-dim); }
+[data-theme='cyber'] .seg button { background: #05040c; color: var(--muted); font-family: var(--font); }
+[data-theme='cyber'] .seg button.on { background: var(--hot); color: #14031a; box-shadow: 0 0 10px var(--hot); }
+
+[data-theme='cyber'] .bar { border: 1px solid var(--gold-dim); background: #05040c; }
+[data-theme='cyber'] .bar-fill { background: linear-gradient(90deg, var(--gold), var(--pos)); box-shadow: 0 0 8px var(--gold); }
+[data-theme='cyber'] .bar-fill.hot { background: linear-gradient(90deg, var(--hot), var(--neg)); box-shadow: 0 0 8px var(--hot); }
+[data-theme='cyber'] .pos { text-shadow: 0 0 6px rgba(57, 255, 136, 0.55); }
+[data-theme='cyber'] .neg { text-shadow: 0 0 6px rgba(255, 61, 127, 0.55); }
+
+[data-theme='cyber'] .day { background: #05040c; border: 1px solid var(--gold-dim); color: var(--gold-dim); }
+[data-theme='cyber'] .day.on { background: rgba(0, 240, 255, 0.12); border-color: var(--gold); color: var(--gold); box-shadow: 0 0 10px rgba(0, 240, 255, 0.4); }
+[data-theme='cyber'] .day.today { outline: 1px solid var(--hot); }
+[data-theme='cyber'] .wdtrack, [data-theme='cyber'] .hc { border: 1px solid var(--gold-dim); background: #05040c; }
+[data-theme='cyber'] .wdfill { background: linear-gradient(0deg, var(--gold), #7af8ff); box-shadow: 0 0 10px var(--gold); }
+[data-theme='cyber'] .wdfill.peak { background: linear-gradient(0deg, var(--hot), #ff9be9); box-shadow: 0 0 10px var(--hot); }
+[data-theme='cyber'] .hc.l1 { background: #0b3a44; }
+[data-theme='cyber'] .hc.l2 { background: #0b7a8a; }
+[data-theme='cyber'] .hc.l3 { background: #00c8d8; }
+[data-theme='cyber'] .hc.l4 { background: #7af8ff; box-shadow: 0 0 6px var(--gold); }
+[data-theme='cyber'] .improw { background: #05040c; border-color: var(--gold-dim); }
+[data-theme='cyber'] .warn { color: var(--amber); }
+[data-theme='cyber'] .tag.income { background: var(--pos); color: #02200e; }
+[data-theme='cyber'] .tag.spend { background: var(--neg); color: #2a0212; }
+[data-theme='cyber'] .mic { background: #05040c; border: 1px solid var(--hot); box-shadow: 0 0 10px rgba(255, 43, 214, 0.5); }
+[data-theme='cyber'] .mic.live { background: var(--hot); }
+
+/* 2D fallback map recoloured */
+[data-theme='cyber'] .map { background: radial-gradient(circle at 50% 30%, #1a0a33, #07060f); border: 1px solid var(--gold-dim); }
+[data-theme='cyber'] .road { stroke: var(--hot); }
+[data-theme='cyber'] .disc { fill: #0d0a1f; stroke: var(--gold); }
+[data-theme='cyber'] .disc.long { fill: #2a0a33; stroke: var(--hot); }
+[data-theme='cyber'] .ring { stroke: var(--gold); }
+[data-theme='cyber'] .ring.won { stroke: var(--amber); }
+[data-theme='cyber'] .glyph { fill: var(--gold); }
+[data-theme='cyber'] .label { font-family: var(--font); }
+[data-theme='cyber'] .map3d { border-color: var(--gold); box-shadow: 0 0 14px rgba(0, 240, 255, 0.3), inset 0 0 30px rgba(255, 43, 214, 0.12); }
+
+[data-theme='cyber'] .nav { background: rgba(5, 4, 12, 0.92); border-top: 1px solid var(--gold); box-shadow: 0 -4px 20px rgba(0, 240, 255, 0.3); backdrop-filter: blur(6px); }
+[data-theme='cyber'] .navbtn { color: var(--muted); font-family: var(--font); font-size: 0.62rem; }
+[data-theme='cyber'] .navbtn.on { color: var(--gold); background: linear-gradient(0deg, rgba(0, 240, 255, 0.16), transparent); text-shadow: 0 0 8px var(--gold); box-shadow: inset 0 2px 0 var(--hot); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme='cyber'] body::before, [data-theme='cyber'] .title, .mic.live { animation: none; }
+}
+
+/* Party panel */
+.party { display: grid; gap: 12px; }
+.hero { display: grid; gap: 4px; }
+.hero-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hero .bar.thin { margin: 0; }
