@@ -33,6 +33,17 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
   const [sel, setSel] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [flat, setFlat] = useState(false)
+  const [fx, setFx] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tl-fx')
+      if (saved) return saved === '1'
+      const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 8
+      const weak = window.matchMedia('(pointer: coarse)').matches && ((navigator.hardwareConcurrency ?? 8) <= 4 || mem <= 3)
+      return !weak // glow effects off by default on weak phones
+    } catch {
+      return true
+    }
+  })
 
   const goals = [...state.goals].sort((a, b) => (a.term === b.term ? 0 : a.term === 'short' ? -1 : 1))
   const selected = goals.find((g) => g.id === sel) ?? null
@@ -55,6 +66,22 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
         <h2>
           World Map
           <span className="row" style={{ flex: 'none' }}>
+            {use3d && (
+              <button
+                className="btn small"
+                onClick={() => {
+                  setFx(!fx)
+                  try {
+                    localStorage.setItem('tl-fx', fx ? '0' : '1')
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+                title="Glow effects (turn off if the map is slow)"
+              >
+                FX {fx ? 'on' : 'off'}
+              </button>
+            )}
             {cyber && goals.length > 0 && (
               <button className="btn small" onClick={() => setFlat((f) => !f)}>
                 {flat ? '3D' : '2D'}
@@ -73,6 +100,7 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
               selected={sel}
               onSelect={setSel}
               onFail={() => setFlat(true)}
+              fx={fx}
             />
           </Suspense>
         )}
