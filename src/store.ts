@@ -53,6 +53,7 @@ export interface Goal {
   deadline?: string
   target: number // habit: clears, savings: VND, manual: unused
   habitId?: string
+  period?: 'week' // habit goals only: count clears this Mon-Sun week instead of in total
   deposits: { date: string; amount: number }[]
   milestones: Milestone[]
 }
@@ -138,7 +139,8 @@ export function goalProgress(g: Goal, s: State): { cur: number; target: number; 
   let target = g.target
   if (g.kind === 'habit') {
     const h = s.habits.find((x) => x.id === g.habitId)
-    cur = h ? h.done.filter((d) => d >= g.start).length : 0
+    const from = g.period === 'week' ? weekStart() : g.start
+    cur = h ? h.done.filter((d) => d >= from && d <= dayKey()).length : 0
   } else if (g.kind === 'savings') {
     cur = g.deposits.reduce((a, d) => a + d.amount, 0)
   } else {
@@ -149,6 +151,14 @@ export function goalProgress(g: Goal, s: State): { cur: number; target: number; 
   return { cur, target, pct }
 }
 
+/** Monday of the current week, as YYYY-MM-DD. */
+export function weekStart(today = dayKey()) {
+  return shiftDay(today, -((new Date(today + 'T12:00:00').getDay() + 6) % 7))
+}
+
+/** Finished for good. Weekly goals reset every Monday, so they never count as finished. */
+export const goalDone = (g: Goal, s: State) => !g.period && goalProgress(g, s).pct >= 1
+
 export const XP_PER_CHECK = 10
 export const XP_PER_TX = 3
 export const XP_PER_GOAL = 50
@@ -156,7 +166,7 @@ export function xpOf(s: State) {
   return (
     s.habits.reduce((a, h) => a + h.done.length * XP_PER_CHECK, 0) +
     s.txs.length * XP_PER_TX +
-    s.goals.filter((g) => goalProgress(g, s).pct >= 1).length * XP_PER_GOAL
+    s.goals.filter((g) => goalDone(g, s)).length * XP_PER_GOAL
   )
 }
 export const levelOf = (xp: number) => ({ level: Math.floor(xp / 100) + 1, into: xp % 100 })

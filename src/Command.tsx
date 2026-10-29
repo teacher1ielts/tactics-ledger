@@ -28,7 +28,7 @@ const ERR: Record<string, string> = {
   'audio-capture': 'No microphone found.',
 }
 
-const EXAMPLES = ['gym at 6pm tomorrow, spent 80k on lunch, finish essay 2 hours', 'mai họp lúc 14h, ăn trưa 50k, nhận lương 15tr', 'add habit meditate every day at 6:30am']
+const EXAMPLES = ['gym at 6pm tomorrow, spent 80k on lunch, finish essay 2 hours', 'mai họp lúc 14h, ăn trưa 50k, nhận lương 15tr', 'add habit meditate every day at 6:30am', 'goal 2 muay thai a week, save 50tr in 6 months, finish reading by friday']
 
 function dayLabel(date: string) {
   const t = dayKey()
@@ -90,7 +90,32 @@ export default function Command({ state, update }: { state: State; update: Updat
         else if (p.kind === 'event') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'event', dur: p.dur, date: p.date, start: p.start }] }
         else if (p.kind === 'task') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline }] }
         else if (p.kind === 'habit-new') n = { ...n, habits: [...n.habits, { id: uid(), name: p.name, job: p.job, done: [], time: p.time, dur: p.dur }] }
-        else if (p.kind === 'habit-done')
+        else if (p.kind === 'goal-new') {
+          let habitId = p.habitId
+          if (p.gkind === 'habit' && !habitId) {
+            habitId = n.habits.find((h) => h.name.toLowerCase() === (p.habitName ?? '').toLowerCase())?.id ?? uid()
+            if (!n.habits.some((h) => h.id === habitId)) n = { ...n, habits: [...n.habits, { id: habitId, name: p.habitName ?? p.name, job: p.job ?? 'Scholar', done: [] }] }
+          }
+          n = {
+            ...n,
+            goals: [
+              ...n.goals,
+              {
+                id: uid(),
+                name: p.name,
+                term: p.term,
+                kind: p.gkind,
+                start: dayKey(),
+                deadline: p.deadline,
+                target: p.target,
+                habitId: p.gkind === 'habit' ? habitId : undefined,
+                period: p.period,
+                deposits: [],
+                milestones: p.gkind === 'manual' ? [{ id: uid(), text: p.name, done: false }] : [],
+              },
+            ],
+          }
+        } else if (p.kind === 'habit-done')
           n = { ...n, habits: n.habits.map((h) => (h.id === p.habitId && !h.done.includes(p.date) ? { ...h, done: [...h.done, p.date] } : h)) }
       }
       return n
@@ -162,7 +187,7 @@ export default function Command({ state, update }: { state: State; update: Updat
             {items.map(({ key, p }) => (
               <li key={key} className="cmd">
                 <div className="grow">
-                  <Card p={p} state={state} onCat={(c) => setP(key, (x) => (x.kind === 'tx' ? { ...x, category: c } : x))} />
+                  <Card p={p} state={state} onCat={(c) => setP(key, (x) => (x.kind === 'tx' ? { ...x, category: c } : x))} onName={(name) => setP(key, (x) => (x.kind === 'goal-new' ? { ...x, name } : x))} />
                 </div>
                 <button className="x" aria-label="Remove" onClick={() => setItems((xs) => xs.filter((x) => x.key !== key))}>
                   ✕
@@ -260,7 +285,28 @@ export default function Command({ state, update }: { state: State; update: Updat
   )
 }
 
-function Card({ p, state, onCat }: { p: Parsed; state: State; onCat: (c: string) => void }) {
+function Card({ p, state, onCat, onName }: { p: Parsed; state: State; onCat: (c: string) => void; onName: (n: string) => void }) {
+  if (p.kind === 'goal-new') {
+    const what =
+      p.gkind === 'savings'
+        ? `save ${vnd(p.target)}`
+        : p.gkind === 'habit'
+          ? p.period
+            ? `${p.target} clear${p.target === 1 ? '' : 's'} a week, resets Monday`
+            : `${p.target} clears in total`
+          : 'checklist'
+    return (
+      <>
+        🎯 <input className="name-in" value={p.name} onChange={(e) => onName(e.target.value)} aria-label="Goal name" />
+        <small className="muted">
+          {' '}
+          {p.term === 'long' ? 'Long-term 🏰' : 'Short-term ⚑'} · {what}
+          {p.deadline ? ` · by ${dayLabel(p.deadline)}` : ''}
+          {p.gkind === 'habit' && !p.habitId ? ` · adds habit "${p.habitName}"` : p.gkind === 'habit' ? ` · tracks "${p.habitName}"` : ''}
+        </small>
+      </>
+    )
+  }
   if (p.kind === 'tx')
     return (
       <>

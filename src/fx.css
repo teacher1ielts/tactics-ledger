@@ -52,3 +52,5 @@
 .themebtn.sync-error { color: var(--neg); border-color: var(--neg); }
 .themebtn.sync-idle { color: var(--pos); border-color: var(--pos); }
 .themebtn.sync-syncing { animation: pulse 1s infinite; }
+
+.name-in { width: min(100%, 22ch); padding: 3px 6px; font-size: 0.95rem; font-weight: 700; }

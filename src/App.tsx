@@ -236,7 +236,7 @@ function Camp({ state, update, debrief }: { state: State; update: Update; debrie
         <Panel title="Active Quests">
           {state.goals
             .map((g) => ({ g, p: goalProgress(g, state) }))
-            .filter((x) => x.p.pct < 1)
+            .filter((x) => x.p.pct < 1 || x.g.period)
             .slice(0, 4)
             .map(({ g, p }) => (
               <div key={g.id} className="catrow">

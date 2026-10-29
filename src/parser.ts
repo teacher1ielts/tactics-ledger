@@ -7,6 +7,7 @@ export type Parsed =
   | { kind: 'task'; title: string; dur: number; deadline?: string }
   | { kind: 'habit-new'; name: string; job: Job; time?: number; dur?: number }
   | { kind: 'habit-done'; habitId: string; name: string; date: string }
+  | { kind: 'goal-new'; name: string; term: 'short' | 'long'; gkind: 'habit' | 'savings' | 'manual'; target: number; period?: 'week'; habitId?: string; habitName?: string; job?: Job; deadline?: string }
   | { kind: 'unknown'; text: string }
 
 type Span = [number, number]
@@ -176,8 +177,8 @@ function findDate(n: string, now: Date, allowYesterday = false): { date: string;
 const FILLER =
   /\b(remind me to|remind me|nhac toi|nhac|please|schedule|book|set|add|them|dat lich|i need to|i have to|need to|have to|must|can phai|phai|toi|minh|at|on|vao luc|luc|vao|for|trong|keo dai|khoang|from|spent|spend|paid|pay|bought|buy|chi|tieu|mua|het|nhan duoc|nhan|received|earned|got|new|create|start|tao|moi|habit|thoi quen|every day|daily|moi ngay|hang ngay|did|done|finished|completed|xong|hoan thanh|the|my|cua|toi nay|tonight)\b/g
 
-function jobOf(n: string): Job {
-  if (/\b(gym|run|running|workout|tap|chay|swim|boi|bong|exercise|the duc)\b/.test(n)) return 'Knight'
+export function jobOf(n: string): Job {
+  if (/\b(gym|run|running|workout|tap|chay|swim|boi|bong|exercise|the duc|muay|thai|box\w*|kick\w*|martial|karate|judo|pilates)\b/.test(n)) return 'Knight'
   if (/\b(meditat\w*|thien|yoga|sleep|ngu|stretch|pray\w*|journal\w*|nhat ky)\b/.test(n)) return 'Monk'
   if (/\b(save|saving|tiet kiem|budget|invest|dau tu|ngan sach)\b/.test(n)) return 'Merchant'
   return 'Scholar'
@@ -194,16 +195,31 @@ function stripFiller(o: string, n: string, spans: Span[]): string {
   return titleCase(cut(o, all))
 }
 
-function split(o: string, n: string): string[] {
-  const re = /\s*(?:[;\n]|[,.](?=\s)|\s+(?:and then|and|then|also|va|roi|sau do)\s+)\s*/g
-  const out: string[] = []
+function split(o: string, n: string, habits: Habit[]): string[] {
+  const habitWords = habits.flatMap((h) => fold(h.name).split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !/^\d/.test(t)))
+  const looksNew = (rhs: string) =>
+    /\d|\b(spent|paid|did|done|add|remind|goal|habit|today|tomorrow|mai|hom nay|at|luc|finished|completed|xong|da)\b/.test(rhs) || habitWords.some((w) => new RegExp('\\b' + w).test(rhs))
+
+  const pieces: [string, string][] = []
   let last = 0
-  for (const m of n.matchAll(re)) {
-    out.push(o.slice(last, m.index))
+  for (const m of n.matchAll(/\s*(?:[;\n]|[,.](?=\s))\s*/g)) {
+    pieces.push([o.slice(last, m.index), n.slice(last, m.index)])
     last = m.index! + m[0].length
   }
-  out.push(o.slice(last))
-  return out.map((s) => s.trim().replace(/[.,;]+$/, '')).filter(Boolean)
+  pieces.push([o.slice(last), n.slice(last)])
+
+  const out: string[] = []
+  for (const [po, pn] of pieces) {
+    let from = 0
+    for (const m of pn.matchAll(/\s+(and then|then|also|roi|sau do|and|va)\s+/g)) {
+      const soft = m[1] === 'and' || m[1] === 'va'
+      if (soft && !looksNew(pn.slice(m.index! + m[0].length))) continue
+      out.push(po.slice(from, m.index))
+      from = m.index! + m[0].length
+    }
+    out.push(po.slice(from))
+  }
+  return out.map((x) => x.trim().replace(/[.,;]+$/, '')).filter(Boolean)
 }
 
 const DONE_RE = /\b(done|did|finished|completed|checked|tick|xong|da tap|da hoc|da lam|da doc|da chay|da thien|hoan thanh|vua)\b/
@@ -211,7 +227,7 @@ const NEWHABIT_RE = /\b(habit|thoi quen)\b/
 const NEWCUE_RE = /\b(add|new|create|start|build|them|tao|moi)\b/
 const TASK_RE = /\b(remind|todo|to do|task|need to|have to|must|nhac|phai|can phai|deadline|due|finish|complete|write|submit|nop|hoan thanh)\b/
 
-function matchHabit(n: string, habits: Habit[]): Habit | null {
+export function matchHabit(n: string, habits: Habit[]): Habit | null {
   let best: Habit | null = null
   let score = 0
   for (const h of habits) {
@@ -225,14 +241,25 @@ function matchHabit(n: string, habits: Habit[]): Habit | null {
   return best
 }
 
+/** "goal ..." / "my goals: ..." / "mục tiêu ..." at the start of a sentence or segment. */
+const GOAL_CUE = /^(?:my\s+)?(?:new\s+)?(?:goals?|muc tieu)\b\s*(?:is|are|la)?\s*[:\-]?\s*/
+
 export function parseCommand(text: string, now: Date, habits: Habit[]): Parsed[] {
   const o = text.normalize('NFC')
-  return split(o, fold(o)).map((seg) => parseSegment(seg, now, habits))
+  const n = fold(o)
+  const lead = o.length - o.trimStart().length
+  const gm = GOAL_CUE.exec(n.slice(lead))
+  const start = gm ? lead + gm[0].length : 0 // one "goal" can introduce a whole list
+  return split(o.slice(start), n.slice(start), habits).map((seg) => parseSegment(seg, now, habits, !!gm))
 }
 
-function parseSegment(seg: string, now: Date, habits: Habit[]): Parsed {
+function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false): Parsed {
   const o = seg
   const n = fold(o)
+
+  if (goalMode) return parseGoal(o, n, now, habits)
+  const gc = GOAL_CUE.exec(n)
+  if (gc) return parseGoal(o.slice(gc[0].length), n.slice(gc[0].length), now, habits)
 
   // 1. check-in on an existing habit
   if (DONE_RE.test(n)) {
@@ -282,4 +309,111 @@ function parseSegment(seg: string, now: Date, habits: Habit[]): Parsed {
     return { kind: 'task', title, dur: dur?.min ?? 60, deadline: date?.date }
   }
   return { kind: 'unknown', text: seg }
+}
+
+/* ---------- goals ---------- */
+const WEEKLY = /\b(?:(?:a|per|each|every|1)\s+week|weekly|moi tuan|mot tuan)\b|\/\s*(?:week|tuan)\b/
+const CNT = /\b(\d+|once|twice|one|two|three|four|five|six|seven|mot|hai|ba|bon|nam|sau|bay)\b/
+const CNTW: Record<string, number> = { once: 1, one: 1, mot: 1, twice: 2, two: 2, hai: 2, three: 3, ba: 3, four: 4, bon: 4, five: 5, nam: 5, six: 6, sau: 6, seven: 7, bay: 7 }
+const HZ = new RegExp(`\\b(?:in|within|trong|sau|for the next|over the next)\\s+${NUM}\\s*(days?|weeks?|months?|years?|ngay|tuan|thang|nam)\\b`)
+const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const BYMONTH = /\b(?:by|before|until|truoc|den)\s+(?:the\s+end\s+of\s+|end\s+of\s+|cuoi\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec|thang\s+(\d{1,2}))\b/
+const GOAL_LEAD = /^(?:(?:i\s+(?:want|need|have|would like|wanna)\s+to|want to|need to|have to|break(?:\s+down)?|to|a|an|the)\s+)+/
+const GOAL_FILLER = /\b(times?|lan|buoi|sessions?|x|of|my|do|doing|long term|short term|dai han|ngan han)\b/g
+const SAVE_CUE = /\b(save|saving|savings|tiet kiem|de danh|fund)\b/
+
+const daysUntil = (date: string, now: Date) => Math.round((new Date(date + 'T12:00:00').getTime() - new Date(fmt(now) + 'T12:00:00').getTime()) / 86400000)
+
+function findHorizon(n: string, now: Date): { date: string; span: Span } | null {
+  let m = HZ.exec(n)
+  if (m) {
+    const v = NUMW[m[1]] ?? parseFloat(m[1].replace(',', '.'))
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    if (/^(day|ngay)/.test(m[2])) d.setDate(d.getDate() + Math.round(v))
+    else if (/^(week|tuan)/.test(m[2])) d.setDate(d.getDate() + Math.round(v * 7))
+    else if (/^(month|thang)/.test(m[2])) d.setMonth(d.getMonth() + Math.round(v))
+    else d.setFullYear(d.getFullYear() + Math.round(v))
+    return { date: fmt(d), span: [m.index, m.index + m[0].length] }
+  }
+  m = BYMONTH.exec(n)
+  if (m) {
+    const mi = m[2] ? +m[2] - 1 : MONTH_NAMES.indexOf(m[1].slice(0, 3))
+    if (mi >= 0 && mi <= 11) {
+      const y = mi >= now.getMonth() ? now.getFullYear() : now.getFullYear() + 1
+      return { date: fmt(new Date(y, mi + 1, 0)), span: [m.index, m.index + m[0].length] } // last day of that month
+    }
+  }
+  const d = findDate(n, now)
+  if (d) {
+    const pre = /(?:by|before|until|truoc|den)\s+$/.exec(n.slice(0, d.span[0]))
+    return { date: d.date, span: [pre ? d.span[0] - pre[0].length : d.span[0], d.span[1]] }
+  }
+  return null
+}
+
+const upper = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase())
+
+/** Goal wording left after removing numbers, dates and filler. */
+function goalName(o: string, spans: Span[]): string {
+  const t = cut(o, spans)
+  const tn = fold(t)
+  const ws = tn.length - tn.trimStart().length
+  const lead = GOAL_LEAD.exec(tn.slice(ws))
+  const more: Span[] = lead ? [[ws, ws + lead[0].length]] : []
+  for (const m of tn.matchAll(/\b(long term|short term|dai han|ngan han)\b/g)) more.push([m.index!, m.index! + m[0].length])
+  const name = cut(t, more).replace(/\s+/g, ' ').trim()
+  return name ? name[0].toUpperCase() + name.slice(1) : ''
+}
+
+function parseGoal(o: string, n: string, now: Date, habits: Habit[]): Parsed {
+  const spans: Span[] = []
+  let deadline: string | undefined
+  const hz = findHorizon(n, now)
+  if (hz) {
+    spans.push(hz.span)
+    deadline = hz.date
+  }
+  const nb = hz ? blank(n, [hz.span]) : n
+  const termHint = /\b(long term|dai han)\b/.test(nb) ? 'long' : /\b(short term|ngan han)\b/.test(nb) ? 'short' : undefined
+  const termFor = (fallback: 'short' | 'long') => termHint ?? (deadline ? (daysUntil(deadline, now) <= 92 ? 'short' : 'long') : fallback)
+
+  // "2 muay thai a week": a habit with a weekly target
+  const wk = WEEKLY.exec(nb)
+  if (wk) {
+    const wspan: Span = [wk.index, wk.index + wk[0].length]
+    const c = CNT.exec(blank(nb, [wspan]))
+    const count = c ? CNTW[c[1]] ?? parseInt(c[1], 10) : 1
+    const sp: Span[] = [...spans, wspan]
+    if (c) sp.push([c.index, c.index + c[0].length])
+    const t = cut(o, sp)
+    const tn = fold(t)
+    const fill: Span[] = [...tn.matchAll(GOAL_FILLER)].map((m) => [m.index!, m.index! + m[0].length])
+    let thing = cut(t, fill).replace(/\s+/g, ' ').trim()
+    thing = thing.replace(/^(?:a|an|the)\s+/i, '')
+    const words = thing.split(' ')
+    const last = words[words.length - 1] ?? ''
+    if (last.length > 3 && /s$/i.test(last) && !/ss$/i.test(last)) words[words.length - 1] = last.slice(0, -1)
+    thing = upper(words.join(' ')).trim()
+    if (!thing) return { kind: 'unknown', text: o }
+    const existing = matchHabit(fold(thing), habits)
+    const habitName = existing?.name ?? thing
+    return { kind: 'goal-new', name: `${habitName}, ${count}× a week`, term: termHint ?? 'short', gkind: 'habit', target: count, period: 'week', habitId: existing?.id, habitName, job: jobOf(fold(thing)), deadline }
+  }
+
+  // "save 50tr for a laptop by March"
+  const money = findMoney(nb, SAVE_CUE.test(nb))
+  if (money) {
+    return { kind: 'goal-new', name: goalName(o, [...spans, money.span]) || 'Savings goal', term: termFor('long'), gkind: 'savings', target: money.amount, deadline }
+  }
+
+  // "30 IELTS sessions" when that habit already exists
+  const hm = matchHabit(nb, habits)
+  const c2 = CNT.exec(nb)
+  if (hm && c2 && /^\d+$/.test(c2[1]) && +c2[1] >= 2) {
+    return { kind: 'goal-new', name: goalName(o, [...spans, [c2.index, c2.index + c2[0].length]]) || hm.name, term: termFor('short'), gkind: 'habit', target: +c2[1], habitId: hm.id, habitName: hm.name, job: hm.job, deadline }
+  }
+
+  const name = goalName(o, spans)
+  if (!name) return { kind: 'unknown', text: o }
+  return { kind: 'goal-new', name, term: termFor('short'), gkind: 'manual', target: 0, deadline }
 }

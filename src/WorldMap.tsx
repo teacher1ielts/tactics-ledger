@@ -27,7 +27,7 @@ const daysLeft = (g: Goal) =>
   g.deadline ? Math.ceil((new Date(g.deadline + 'T12:00:00').getTime() - new Date(dayKey() + 'T12:00:00').getTime()) / 86400000) : null
 
 const amountText = (g: Goal, cur: number, target: number) =>
-  g.kind === 'savings' ? `${vnd(cur)} / ${vnd(target)}` : g.kind === 'habit' ? `${cur} / ${target} clears` : `${cur} / ${target} milestones`
+  g.kind === 'savings' ? `${vnd(cur)} / ${vnd(target)}` : g.kind === 'habit' ? `${cur} / ${target} clears${g.period ? ' this week' : ''}` : `${cur} / ${target} milestones`
 
 export default function WorldMap({ state, update, cyber }: { state: State; update: Update; cyber: boolean }) {
   const [sel, setSel] = useState<string | null>(null)
@@ -141,6 +141,7 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
   const [kind, setKind] = useState<GoalKind>('habit')
   const [target, setTarget] = useState('')
   const [habitId, setHabitId] = useState(state.habits[0]?.id ?? '')
+  const [weekly, setWeekly] = useState(false)
   const [deadline, setDeadline] = useState('')
   const [steps, setSteps] = useState('')
   const [err, setErr] = useState('')
@@ -162,7 +163,7 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
       .filter(Boolean)
       .map((text) => ({ id: uid(), text, done: false }))
     if (kind === 'manual' && milestones.length === 0) return setErr('Add at least one milestone, one per line.')
-    const g: Goal = { id: uid(), name: name.trim(), term, kind, start: dayKey(), deadline: deadline || undefined, target: t, habitId: kind === 'habit' ? habitId : undefined, deposits: [], milestones: kind === 'manual' ? milestones : [] }
+    const g: Goal = { id: uid(), name: name.trim(), term, kind, start: dayKey(), deadline: deadline || undefined, target: t, habitId: kind === 'habit' ? habitId : undefined, period: kind === 'habit' && weekly ? 'week' : undefined, deposits: [], milestones: kind === 'manual' ? milestones : [] }
     update((s) => ({ ...s, goals: [...s.goals, g] }))
     done()
   }
@@ -203,8 +204,14 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
                 </option>
               ))}
             </select>
-            <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Clears (e.g. 30)" inputMode="numeric" />
+            <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder={weekly ? 'Clears per week (e.g. 2)' : 'Clears in total (e.g. 30)'} inputMode="numeric" />
           </div>
+        )}
+        {kind === 'habit' && (
+          <label className="row alert-row">
+            <input type="checkbox" checked={weekly} onChange={(e) => setWeekly(e.target.checked)} />
+            <span>Repeats every week (resets Monday)</span>
+          </label>
         )}
         {kind === 'savings' && <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="Target (20tr, 150tr)" inputMode="decimal" />}
         {kind === 'manual' && <textarea value={steps} onChange={(e) => setSteps(e.target.value)} placeholder={'One milestone per line\nBook the exam\nFinish Writing course'} rows={4} />}
@@ -250,7 +257,7 @@ function GoalDetail({ g, state, update, close }: { g: Goal; state: State; update
       </div>
       <p className="muted">
         {amountText(g, cur, target)} · {Math.round(pct * 100)}%
-        {pct >= 1 ? ' · QUEST COMPLETE (+50 XP)' : left !== null ? (left >= 0 ? ` · ${left} days left` : ` · ${-left} days overdue`) : ''}
+        {pct >= 1 ? (g.period ? ' · done for this week' : ' · QUEST COMPLETE (+50 XP)') : left !== null ? (left >= 0 ? ` · ${left} days left` : ` · ${-left} days overdue`) : ''}
       </p>
       {g.kind === 'habit' && <p className="muted">Fed by {habit ? `${JOBS[habit.job]} ${habit.name}` : 'a deleted habit'} since {g.start}.</p>}
 
