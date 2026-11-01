@@ -3,7 +3,7 @@ import { parseCommand, type Parsed } from './parser'
 import { autoScheduleTasks, blocksFor, hhmm, slotHabits } from './scheduler'
 import { play } from './sfx'
 import Todo from './Todo'
-import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, shiftDay, toggleDone, uid, vnd, type State } from './store'
+import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, repeatLabel, shiftDay, toggleTask, uid, vnd, type State } from './store'
 
 type Update = (fn: (s: State) => State) => void
 type Item = { key: string; p: Parsed }
@@ -89,7 +89,7 @@ export default function Command({ state, update }: { state: State; update: Updat
       for (const p of ok) {
         if (p.kind === 'tx') n = { ...n, txs: [{ id: uid(), date: dayKey(), type: p.type, amount: p.amount, category: p.category, note: p.note }, ...n.txs] }
         else if (p.kind === 'event') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'event', dur: p.dur, date: p.date, start: p.start }] }
-        else if (p.kind === 'task') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline }] }
+        else if (p.kind === 'task') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline, date: p.date, start: p.start, repeat: p.repeat }] }
         else if (p.kind === 'habit-new') n = { ...n, habits: [...n.habits, { id: uid(), name: p.name, job: p.job, done: [], time: p.time, dur: p.dur }] }
         else if (p.kind === 'goal-new') {
           let habitId = p.habitId
@@ -117,7 +117,7 @@ export default function Command({ state, update }: { state: State; update: Updat
             ],
           }
         } else if (p.kind === 'task-done') {
-          n = { ...n, events: n.events.map((e) => (e.id === p.taskId && !e.done ? toggleDone(e) : e)) }
+          if (n.events.some((e) => e.id === p.taskId && !e.done)) n = toggleTask(n, p.taskId)
         } else if (p.kind === 'habit-done')
           n = { ...n, habits: n.habits.map((h) => (h.id === p.habitId && !h.done.includes(p.date) ? { ...h, done: [...h.done, p.date] } : h)) }
       }
@@ -240,7 +240,7 @@ export default function Command({ state, update }: { state: State; update: Updat
                 </button>
               ) : (
                 <>
-                  <button className="check" onClick={() => update((s) => ({ ...s, events: s.events.map((e) => (e.id === b.ref ? toggleDone(e) : e)) }))} aria-label={`Toggle ${b.title}`}>
+                  <button className="check" onClick={() => update((s) => toggleTask(s, b.ref))} aria-label={`Toggle ${b.title}`}>
                     {b.done ? '◆' : '◇'}
                   </button>
                   <button className="x" aria-label="Delete" onClick={() => update((s) => ({ ...s, events: s.events.filter((e) => e.id !== b.ref) }))}>
@@ -261,7 +261,7 @@ export default function Command({ state, update }: { state: State; update: Updat
               <ul className="list">
                 {unscheduled.map((t) => (
                   <li key={t.id}>
-                    <button className="check" onClick={() => update((s) => ({ ...s, events: s.events.map((e) => (e.id === t.id ? toggleDone(e) : e)) }))} aria-label={`Done: ${t.title}`}>
+                    <button className="check" onClick={() => update((s) => toggleTask(s, t.id))} aria-label={`Done: ${t.title}`}>
                       ◇
                     </button>
                     <span className="grow">
@@ -348,7 +348,7 @@ function Card({ p, state, onCat, onName }: { p: Parsed; state: State; onCat: (c:
         📝 <b>{p.title}</b>
         <small className="muted">
           {' '}
-          · {p.dur} min · will be auto-placed{p.deadline ? ` before ${dayLabel(p.deadline)}` : ''}
+          · {p.dur} min{p.repeat ? ` · ↻ ${repeatLabel(p.repeat)}` : ''}{p.date && p.start !== undefined ? ` · ${dayLabel(p.date)} ${hhmm(p.start)}` : ` · will be auto-placed${p.deadline ? ` before ${dayLabel(p.deadline)}` : ''}`}
         </small>
       </>
     )

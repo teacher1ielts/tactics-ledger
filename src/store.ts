@@ -27,6 +27,13 @@ export interface PlanItem {
   deadline?: string
   done?: boolean
   doneAt?: string // YYYY-MM-DD it was ticked off
+  repeat?: Repeat // finishing it creates the next one
+  from?: string // the finished task this one was created from
+}
+
+export interface Repeat {
+  every: 'day' | 'week' | 'month'
+  dom?: number // monthly: day of the month, so 31st tasks do not drift
 }
 
 export type TxType = 'income' | 'spend'
@@ -185,6 +192,45 @@ export function xpOf(s: State) {
     s.goals.filter((g) => goalDone(g, s)).length * XP_PER_GOAL
   )
 }
+const ymd = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+
+/** The next due date after finishing a repeating task: one step on from its due date, and never in the past. */
+export function nextDue(r: Repeat, base: string, today = dayKey()): string {
+  const step = (d: string): string => {
+    if (r.every === 'day') return shiftDay(d, 1)
+    if (r.every === 'week') return shiftDay(d, 7)
+    const dt = new Date(d + 'T12:00:00')
+    const nx = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)
+    const last = new Date(nx.getFullYear(), nx.getMonth() + 1, 0).getDate()
+    return ymd(nx.getFullYear(), nx.getMonth() + 1, Math.min(r.dom ?? dt.getDate(), last))
+  }
+  let n = step(base)
+  for (let i = 0; i < 5000 && n <= today; i++) n = step(n)
+  return n
+}
+
+export function repeatLabel(r: Repeat) {
+  if (r.every === 'day') return 'every day'
+  if (r.every === 'week') return 'every week'
+  const d = r.dom
+  const suffix = !d ? '' : d % 100 >= 11 && d % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][d % 10 > 3 ? 0 : d % 10]
+  return d ? `monthly on the ${d}${suffix}` : 'every month'
+}
+
+/** Tick or untick a task. Finishing a repeating one creates the next; unticking removes that follow-up. */
+export function toggleTask(s: State, id: string): State {
+  const e = s.events.find((x) => x.id === id)
+  if (!e) return s
+  if (!e.done) {
+    const events = s.events.map((x) => (x.id === id ? toggleDone(x) : x))
+    if (!e.repeat) return { ...s, events }
+    const next = nextDue(e.repeat, e.deadline ?? e.date ?? dayKey())
+    const copy: PlanItem = { id: uid(), title: e.title, kind: e.kind, dur: e.dur, repeat: e.repeat, from: id, deadline: next, ...(e.start !== undefined ? { date: next, start: e.start } : {}) }
+    return { ...s, events: [...events, copy] }
+  }
+  return { ...s, events: s.events.filter((x) => !(x.from === id && !x.done)).map((x) => (x.id === id ? toggleDone(x) : x)) }
+}
+
 /** Tick or untick a task/event, remembering the day it was finished. */
 export const toggleDone = (e: PlanItem): PlanItem => (e.done ? { ...e, done: false, doneAt: undefined } : { ...e, done: true, doneAt: dayKey() })
 

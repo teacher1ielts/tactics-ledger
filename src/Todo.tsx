@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { parseCommand } from './parser'
 import { hhmm } from './scheduler'
-import { dayKey, shiftDay, toggleDone, uid, type PlanItem, type State } from './store'
+import { dayKey, repeatLabel, shiftDay, toggleTask, uid, type PlanItem, type State } from './store'
 
 type Update = (fn: (s: State) => State) => void
 
@@ -29,7 +29,7 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
     .sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''))
   const shown = compact ? open.slice(0, 5) : open
 
-  const toggle = (id: string) => update((s) => ({ ...s, events: s.events.map((e) => (e.id === id ? toggleDone(e) : e)) }))
+  const toggle = (id: string) => update((s) => toggleTask(s, id))
 
   const add = () => {
     const t = text.trim()
@@ -37,7 +37,7 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
     // "call mom by friday" or "pay rent tomorrow 9am" keep their deadline or time
     const p = parseCommand(t, new Date(), state.habits)[0]
     let item: PlanItem
-    if (p?.kind === 'task') item = { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline }
+    if (p?.kind === 'task') item = { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline, date: p.date, start: p.start, repeat: p.repeat }
     else if (p?.kind === 'event') item = { id: uid(), title: p.title, kind: 'task', dur: p.dur, date: p.date, start: p.start }
     else item = { id: uid(), title: t[0].toUpperCase() + t.slice(1), kind: 'task', dur: 30 }
     update((s) => ({ ...s, events: [...s.events, item] }))
@@ -65,6 +65,7 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
                 <small className={late ? 'neg' : 'muted'}>
                   {e.deadline ? ` · due ${dayLabel(e.deadline)}${late ? ' (overdue)' : ''}` : ''}
                   {e.date && e.start !== undefined ? ` · ${dayLabel(e.date)} ${hhmm(e.start)}` : ''}
+                  {e.repeat ? ` · ↻ ${repeatLabel(e.repeat)}` : ''}
                 </small>
               </span>
               {!compact && (

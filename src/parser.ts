@@ -1,10 +1,10 @@
 // Rule-based English/Vietnamese command parser. Pure: no DOM, no React.
-import type { Habit, Job } from './store'
+import type { Habit, Job, Repeat } from './store'
 
 export type Parsed =
   | { kind: 'tx'; type: 'income' | 'spend'; amount: number; category: string; note: string }
   | { kind: 'event'; title: string; date: string; start: number; dur: number }
-  | { kind: 'task'; title: string; dur: number; deadline?: string }
+  | { kind: 'task'; title: string; dur: number; deadline?: string; date?: string; start?: number; repeat?: Repeat }
   | { kind: 'habit-new'; name: string; job: Job; time?: number; dur?: number }
   | { kind: 'habit-done'; habitId: string; name: string; date: string }
   | { kind: 'goal-new'; name: string; term: 'short' | 'long'; gkind: 'habit' | 'savings' | 'manual'; target: number; period?: 'week'; habitId?: string; habitName?: string; job?: Job; deadline?: string }
@@ -166,6 +166,11 @@ function findDate(n: string, now: Date, allowYesterday = false): { date: string;
       return { date: `${y}-${pad(mo)}-${pad(d)}`, span: [m.index, m.index + m[0].length] }
     }
   }
+  if ((m = /\b(?:on\s+)?(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b/.exec(n)) && +m[1] >= 1 && +m[1] <= 31) {
+    let d = new Date(now.getFullYear(), now.getMonth(), +m[1])
+    if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = new Date(now.getFullYear(), now.getMonth() + 1, +m[1])
+    return { date: fmt(d), span: [m.index, m.index + m[0].length] }
+  }
   if ((m = /\bngay (\d{1,2})\b/.exec(n)) && +m[1] >= 1 && +m[1] <= 31) {
     let d = new Date(now.getFullYear(), now.getMonth(), +m[1])
     if (d < new Date(now.getFullYear(), now.getMonth(), now.getDate())) d = new Date(now.getFullYear(), now.getMonth() + 1, +m[1])
@@ -190,9 +195,12 @@ const titleCase = (s: string) => {
   return t ? t[0].toUpperCase() + t.slice(1) : ''
 }
 
-function stripFiller(o: string, n: string, spans: Span[]): string {
+/** Task and event titles keep their verbs ("pay rent"); only reminder words, prepositions and articles go. */
+const FILLER_TASK = /\b(remind me to|remind me|nhac toi|nhac|please|i need to|i have to|need to|have to|must|can phai|phai|toi|minh|at|on|vao luc|luc|vao|for|trong|keo dai|khoang|from|the|my|cua|toi nay|tonight)\b/g
+
+function stripFiller(o: string, n: string, spans: Span[], filler: RegExp = FILLER): string {
   const all = [...spans]
-  for (const m of n.matchAll(FILLER)) all.push([m.index!, m.index! + m[0].length])
+  for (const m of n.matchAll(filler)) all.push([m.index!, m.index! + m[0].length])
   return titleCase(cut(o, all))
 }
 
@@ -221,6 +229,19 @@ function split(o: string, n: string, habits: Habit[]): string[] {
     out.push(po.slice(from))
   }
   return out.map((x) => x.trim().replace(/[.,;]+$/, '')).filter(Boolean)
+}
+
+const REPEATS: [RegExp, Repeat['every']][] = [
+  [/(?:\bof\s+)?\b(?:every|each)\s+(?:day|morning|evening|night)\b|\bdaily\b|\bmoi\s+(?:ngay|sang|toi)\b|\bhang\s+ngay\b/, 'day'],
+  [/(?:\bof\s+)?\b(?:every|each)\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\bweekly\b|\bmoi\s+tuan\b|\bhang\s+tuan\b/, 'week'],
+  [/(?:\bof\s+)?\b(?:every|each)\s+month\b|\bmonthly\b|\bmoi\s+thang\b|\bhang\s+thang\b/, 'month'],
+]
+function findRepeat(n: string): { every: Repeat['every']; spans: Span[] } | null {
+  for (const [re, every] of REPEATS) {
+    const hits = [...n.matchAll(new RegExp(re.source, 'g'))]
+    if (hits.length) return { every, spans: hits.map((m) => [m.index!, m.index! + m[0].length] as Span) }
+  }
+  return null
 }
 
 const DONE_RE = /\b(done|did|finished|completed|checked|tick|xong|da tap|da hoc|da lam|da doc|da chay|da thien|hoan thanh|vua)\b/
@@ -319,12 +340,14 @@ function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false,
   const n2 = dur ? blank(n, [dur.span]) : n
   const time = findTime(n2, false)
   const n3 = time ? blank(n2, [time.span]) : n2
-  const date = findDate(n3, now)
+  const date = findDate(n3, now, !time) // "yesterday" is fine for a task (it is simply overdue), not for an event
+  const rep = findRepeat(n3)
   // "by friday" / "before 5/11": the little word belongs to the date, not the title
   const pre = date ? /(?:by|before|until|due|truoc|den)\s+$/.exec(n3.slice(0, date.span[0])) : null
   const dateSpan: Span | undefined = date ? [pre ? date.span[0] - pre[0].length : date.span[0], date.span[1]] : undefined
-  const spans = [dur?.span, time?.span, dateSpan].filter(Boolean) as Span[]
-  const title = stripFiller(o, n, spans) || 'Untitled'
+  const spans = [dur?.span, time?.span, dateSpan, ...(rep?.spans ?? [])].filter(Boolean) as Span[]
+  const repeat: Repeat | undefined = rep ? { every: rep.every, ...(rep.every === 'month' ? { dom: date ? Number(date.date.slice(8)) : now.getDate() } : {}) } : undefined
+  const title = stripFiller(o, n, spans, FILLER_TASK) || 'Untitled'
   const today = fmt(now)
 
   if (time) {
@@ -332,10 +355,11 @@ function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false,
     if (date?.tonight && start < 12 * 60) start += 12 * 60
     let day = date?.date
     if (!day) day = start <= now.getHours() * 60 + now.getMinutes() ? fmt(addDays(now, 1)) : today
+    if (repeat) return { kind: 'task', title, dur: dur?.min ?? 60, deadline: day, date: day, start, repeat }
     return { kind: 'event', title, date: day, start, dur: dur?.min ?? 60 }
   }
-  if (date || dur || TASK_RE.test(n)) {
-    return { kind: 'task', title, dur: dur?.min ?? 60, deadline: date?.date }
+  if (date || dur || rep || TASK_RE.test(n)) {
+    return { kind: 'task', title, dur: dur?.min ?? 60, deadline: date?.date ?? (repeat ? today : undefined), repeat }
   }
   return { kind: 'unknown', text: seg }
 }
