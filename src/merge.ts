@@ -35,6 +35,7 @@ function mergeFields(b: Rec | undefined, l: Rec, r: Rec): Rec {
     const bv = b?.[k]
     if ((k === 'done' || k === 'deposits') && (Array.isArray(lv) || Array.isArray(rv))) out[k] = mergeSet(bv as unknown[] | undefined, (lv ?? []) as unknown[], (rv ?? []) as unknown[])
     else if (k === 'milestones') out[k] = mergeById((bv ?? []) as Rec[], (lv ?? []) as Rec[], (rv ?? []) as Rec[])
+    else if (k === 'next' && typeof lv === 'string' && typeof rv === 'string') out[k] = lv > rv ? lv : rv // a rule never goes back in time, so nothing posts twice
     else if (eq(lv, rv)) out[k] = lv
     else if (b && eq(lv, bv)) out[k] = rv // only the cloud changed it
     else out[k] = lv // changed here (or both): this device wins
@@ -64,13 +65,25 @@ export function mergeById<T extends { id: string }>(base: T[], loc: T[], rem: T[
   return out
 }
 
+/**
+ * Repeating money rules: a delete always wins. The other device may have "edited" the rule only by
+ * auto-posting (which moves its next date), and that must not bring a deleted rule back.
+ */
+function mergeRules<T extends { id: string }>(base: T[], loc: T[], rem: T[]): T[] {
+  const inBase = new Set(base.map((x) => x.id))
+  const inL = new Set(loc.map((x) => x.id))
+  const inR = new Set(rem.map((x) => x.id))
+  return mergeById(base, loc, rem).filter((x) => !inBase.has(x.id) || (inL.has(x.id) && inR.has(x.id)))
+}
+
 export function mergeState(base: State | null, local: State, remote: State): State {
-  const b = base ?? { habits: [], txs: [], budget: 0, goals: [], events: [] }
+  const b = base ?? { habits: [], txs: [], budget: 0, goals: [], events: [], recurring: [] }
   return {
     habits: mergeById(b.habits ?? [], local.habits ?? [], remote.habits ?? []),
     txs: mergeById(b.txs ?? [], local.txs ?? [], remote.txs ?? []).sort((x, y) => (y.date > x.date ? 1 : y.date < x.date ? -1 : 0)),
     goals: mergeById(b.goals ?? [], local.goals ?? [], remote.goals ?? []),
     events: mergeById(b.events ?? [], local.events ?? [], remote.events ?? []),
+    recurring: mergeRules(b.recurring ?? [], local.recurring ?? [], remote.recurring ?? []),
     budget: eq(local.budget, remote.budget) ? local.budget : base ? (eq(local.budget, b.budget) ? remote.budget : local.budget) : local.budget || remote.budget,
   }
 }
@@ -80,4 +93,4 @@ export function stable(x: unknown): string {
   return JSON.stringify(x, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1))) : v))
 }
 
-export const isEmptyState = (s: State) => !s.habits?.length && !s.txs?.length && !s.goals?.length && !s.events?.length && !s.budget
+export const isEmptyState = (s: State) => !s.habits?.length && !s.txs?.length && !s.goals?.length && !s.events?.length && !s.recurring?.length && !s.budget

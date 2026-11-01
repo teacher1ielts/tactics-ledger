@@ -2,7 +2,7 @@
 import type { Habit, Job, Repeat } from './store'
 
 export type Parsed =
-  | { kind: 'tx'; type: 'income' | 'spend'; amount: number; category: string; note: string }
+  | { kind: 'tx'; type: 'income' | 'spend'; amount: number; category: string; note: string; repeat?: Repeat; startDate?: string }
   | { kind: 'event'; title: string; date: string; start: number; dur: number }
   | { kind: 'task'; title: string; dur: number; deadline?: string; date?: string; start?: number; repeat?: Repeat }
   | { kind: 'habit-new'; name: string; job: Job; time?: number; dur?: number }
@@ -331,8 +331,12 @@ function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false,
   if (money) {
     const income = INCOME_RE.test(n) && !(SPEND_RE.test(n) && !/\b(got paid|paid me)\b/.test(n) && !/\b(luong|salary|nhan)\b/.test(n))
     const type = income ? 'income' : 'spend'
-    const note = stripFiller(o, n, [money.span])
-    return { kind: 'tx', type, amount: money.amount, category: categoryOf(o, type), note }
+    // "salary 15tr every month on the 1st": a rule that posts by itself
+    const rep = findRepeat(n)
+    const rd = rep ? findDate(blank(n, [money.span]), now) : null
+    const note = stripFiller(o, n, [money.span, ...(rep?.spans ?? []), ...(rd ? [rd.span] : [])])
+    const repeat: Repeat | undefined = rep ? { every: rep.every, ...(rep.every === 'month' ? { dom: rd ? Number(rd.date.slice(8)) : now.getDate() } : {}) } : undefined
+    return { kind: 'tx', type, amount: money.amount, category: categoryOf(o, type), note, repeat, startDate: repeat ? (rd?.date ?? fmt(now)) : undefined }
   }
 
   // 4. event or task
@@ -456,7 +460,12 @@ function parseGoal(o: string, n: string, now: Date, habits: Habit[]): Parsed {
   // "save 50tr for a laptop by March"
   const money = findMoney(nb, SAVE_CUE.test(nb))
   if (money) {
-    return { kind: 'goal-new', name: goalName(o, [...spans, money.span]) || 'Savings goal', term: termFor('long'), gkind: 'savings', target: money.amount, deadline }
+    // "save 50tr by March" leaves just "Save": give it the amount so the quest is recognisable
+    const short = money.amount >= 1e6 ? `${+(money.amount / 1e6).toFixed(2)}tr` : `${Math.round(money.amount / 1e3)}k`
+    let name = goalName(o, [...spans, money.span])
+    if (!name || /^(save|saving|savings|tiet kiem|de danh)$/i.test(fold(name).trim())) name = `Save ${short}`
+    else if (!/d/.test(name)) name = `${name} (${short})`
+    return { kind: 'goal-new', name, term: termFor('long'), gkind: 'savings', target: money.amount, deadline }
   }
 
   // "30 IELTS sessions" when that habit already exists

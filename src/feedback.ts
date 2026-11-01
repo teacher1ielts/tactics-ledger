@@ -62,7 +62,7 @@ export function useFeedback(state: State) {
   useEffect(() => {
     const snap = snapshot(state)
     const clears = state.habits.reduce((a, h) => a + h.done.length, 0)
-    const txs = state.txs.length
+    const txs = state.txs.filter((t) => !t.rid).length
     const tasks = state.events.filter((e) => e.kind === 'task' && e.done).length
 
     if (!peak.current) {

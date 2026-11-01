@@ -3,7 +3,7 @@ import { parseCommand, type Parsed } from './parser'
 import { autoScheduleTasks, blocksFor, hhmm, slotHabits } from './scheduler'
 import { play } from './sfx'
 import Todo from './Todo'
-import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, repeatLabel, shiftDay, toggleTask, uid, vnd, type State } from './store'
+import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, postRecurring, repeatLabel, shiftDay, toggleTask, uid, vnd, type Recurring, type State } from './store'
 
 type Update = (fn: (s: State) => State) => void
 type Item = { key: string; p: Parsed }
@@ -87,7 +87,10 @@ export default function Command({ state, update }: { state: State; update: Updat
     update((s) => {
       let n = s
       for (const p of ok) {
-        if (p.kind === 'tx') n = { ...n, txs: [{ id: uid(), date: dayKey(), type: p.type, amount: p.amount, category: p.category, note: p.note }, ...n.txs] }
+        if (p.kind === 'tx' && p.repeat) {
+          const rule: Recurring = { id: uid(), type: p.type, amount: p.amount, category: p.category, note: p.note, every: p.repeat.every, dom: p.repeat.dom, next: p.startDate ?? dayKey() }
+          n = postRecurring({ ...n, recurring: [...n.recurring, rule] })
+        } else if (p.kind === 'tx') n = { ...n, txs: [{ id: uid(), date: dayKey(), type: p.type, amount: p.amount, category: p.category, note: p.note }, ...n.txs] }
         else if (p.kind === 'event') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'event', dur: p.dur, date: p.date, start: p.start }] }
         else if (p.kind === 'task') n = { ...n, events: [...n.events, { id: uid(), title: p.title, kind: 'task', dur: p.dur, deadline: p.deadline, date: p.date, start: p.start, repeat: p.repeat }] }
         else if (p.kind === 'habit-new') n = { ...n, habits: [...n.habits, { id: uid(), name: p.name, job: p.job, done: [], time: p.time, dur: p.dur }] }
@@ -327,6 +330,7 @@ function Card({ p, state, onCat, onName }: { p: Parsed; state: State; onCat: (c:
           ))}
         </select>
         {p.note && <small className="muted"> · {p.note}</small>}
+        {p.repeat && <small className="muted"> · ↻ {repeatLabel(p.repeat)}{p.startDate ? `, from ${dayLabel(p.startDate)}` : ''}</small>}
       </>
     )
   if (p.kind === 'event') {

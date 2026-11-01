@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { TaskEditor } from './Edit'
 import { parseCommand } from './parser'
 import { hhmm } from './scheduler'
 import { dayKey, repeatLabel, shiftDay, toggleTask, uid, type PlanItem, type State } from './store'
@@ -22,6 +23,7 @@ export function openTasks(s: State) {
 
 export default function Todo({ state, update, compact = false, onOpen }: { state: State; update: Update; compact?: boolean; onOpen?: () => void }) {
   const [text, setText] = useState('')
+  const [editing, setEditing] = useState<PlanItem | null>(null)
   const today = dayKey()
   const open = openTasks(state)
   const done = state.events
@@ -69,9 +71,14 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
                 </small>
               </span>
               {!compact && (
+                <>
+                <button className="x" aria-label={`Edit ${e.title}`} onClick={() => setEditing(e)}>
+                  ✎
+                </button>
                 <button className="x" aria-label={`Delete ${e.title}`} onClick={() => update((s) => ({ ...s, events: s.events.filter((x) => x.id !== e.id) }))}>
                   ✕
                 </button>
+                </>
               )}
             </li>
           )
@@ -120,6 +127,21 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
             ))}
           </ul>
         </details>
+      )}
+
+      {editing && (
+        <TaskEditor
+          task={editing}
+          close={() => setEditing(null)}
+          onSave={(t) => {
+            update((s) => ({ ...s, events: s.events.map((x) => (x.id === t.id ? t : x)) }))
+            setEditing(null)
+          }}
+          onDelete={() => {
+            update((s) => ({ ...s, events: s.events.filter((x) => x.id !== editing.id) }))
+            setEditing(null)
+          }}
+        />
       )}
     </section>
   )

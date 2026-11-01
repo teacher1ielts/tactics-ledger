@@ -23,7 +23,10 @@ import WorldMap from './WorldMap'
 
 import Insights from './Insights'
 import Command from './Command'
-import ImportPanel from './ImportPanel'
+import Treasury from './Treasury'
+import { HabitEditor } from './Edit'
+import { silence } from './feedback'
+import { postRecurring, type Habit } from './store'
 import { blocksFor, hhmm } from './scheduler'
 import BurstOverlay from './BurstOverlay'
 import { useFeedback } from './feedback'
@@ -57,6 +60,18 @@ export default function App() {
     }
   }, [theme])
   const update: Update = (fn) => setState(fn)
+  // repeating money: post whatever has come due, on open, when you come back to the app, and hourly
+  useEffect(() => {
+    const run = () => setState((s) => postRecurring(s))
+    run()
+    const onVisible = () => document.visibilityState === 'visible' && run()
+    document.addEventListener('visibilitychange', onVisible)
+    const id = setInterval(run, 3_600_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(id)
+    }
+  }, [setState])
   const fb = useFeedback(state)
   const sync = useSync(state, setState)
   const [syncOpen, setSyncOpen] = useState(false)
@@ -297,6 +312,7 @@ function Camp({ state, update, debrief, openTodo, goTo }: { state: State; update
 function Habits({ state, update }: { state: State; update: Update }) {
   const [name, setName] = useState('')
   const [job, setJob] = useState<Job>('Scholar')
+  const [editing, setEditing] = useState<Habit | null>(null)
   const today = dayKey()
   const week = Array.from({ length: 7 }, (_, i) => shiftDay(today, i - 6))
 
@@ -335,6 +351,10 @@ function Habits({ state, update }: { state: State; update: Update }) {
           key={h.id}
           title={`${JOBS[h.job]} ${h.name}`}
           right={
+            <span className="row" style={{ flex: 'none', gap: 0 }}>
+            <button className="x" aria-label={`Edit ${h.name}`} onClick={() => setEditing(h)}>
+              ✎
+            </button>
             <button
               className="x"
               aria-label={`Delete ${h.name}`}
@@ -342,6 +362,7 @@ function Habits({ state, update }: { state: State; update: Update }) {
             >
               ✕
             </button>
+            </span>
           }
         >
           <div className="week">
@@ -360,132 +381,22 @@ function Habits({ state, update }: { state: State; update: Update }) {
           </p>
         </Panel>
       ))}
-    </>
-  )
-}
-
-function Treasury({ state, update }: { state: State; update: Update }) {
-  const [type, setType] = useState<TxType>('spend')
-  const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState(SPEND_CATS[0])
-  const [note, setNote] = useState('')
-  const [err, setErr] = useState('')
-  const { income, spent, byCat } = useMonthStats(state)
-  const cats = type === 'spend' ? SPEND_CATS : INCOME_CATS
-
-  const switchType = (t: TxType) => {
-    setType(t)
-    setCategory((t === 'spend' ? SPEND_CATS : INCOME_CATS)[0])
-  }
-
-  const add = () => {
-    const v = parseVnd(amount)
-    if (!Number.isFinite(v) || v <= 0) return setErr('Enter an amount like 50k, 1.5tr or 120000')
-    setErr('')
-    update((s) => ({ ...s, txs: [{ id: uid(), date: dayKey(), type, amount: v, category, note: note.trim() }, ...s.txs] }))
-    setAmount('')
-    setNote('')
-  }
-
-  const max = Math.max(1, ...byCat.values())
-  const pct = state.budget ? Math.min(100, (spent / state.budget) * 100) : 0
-
-  return (
-    <>
-      <Panel title="Record Transaction">
-        <div className="seg">
-          <button className={type === 'spend' ? 'on' : ''} onClick={() => switchType('spend')}>
-            Spend
-          </button>
-          <button className={type === 'income' ? 'on' : ''} onClick={() => switchType('income')}>
-            Income
-          </button>
-        </div>
-        <form
-          className="stack"
-          onSubmit={(e) => {
-            e.preventDefault()
-            add()
+      {editing && (
+        <HabitEditor
+          habit={editing}
+          close={() => setEditing(null)}
+          onSave={(h) => {
+            if (h.job !== editing.job) silence.on = true // moving a habit to another class is not a level-up
+            update((s) => ({ ...s, habits: s.habits.map((x) => (x.id === h.id ? h : x)) }))
+            setEditing(null)
           }}
-        >
-          <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount (50k, 1.5tr, 120000)" inputMode="decimal" />
-          <div className="row">
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {cats.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
-          </div>
-          {err && <p className="neg">{err}</p>}
-          <button className="btn" type="submit">
-            Record
-          </button>
-        </form>
-      </Panel>
-
-      <Panel title="Monthly Budget">
-        <div className="row">
-          <input
-            defaultValue={state.budget || ''}
-            placeholder="Spending cap, e.g. 8tr"
-            inputMode="decimal"
-            onBlur={(e) => {
-              const v = e.target.value.trim() ? parseVnd(e.target.value) : 0
-              if (Number.isFinite(v)) update((s) => ({ ...s, budget: v }))
-            }}
-          />
-        </div>
-        {state.budget > 0 && (
-          <>
-            <div className="bar">
-              <div className={`bar-fill ${pct > 90 ? 'hot' : ''}`} style={{ width: `${pct}%` }} />
-            </div>
-            <p className="muted">
-              {vnd(spent)} of {vnd(state.budget)} · income {vnd(income)}
-            </p>
-          </>
-        )}
-      </Panel>
-
-      <ImportPanel state={state} update={update} />
-
-      {byCat.size > 0 && (
-        <Panel title="Spending by Category">
-          {[...byCat.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .map(([c, v]) => (
-              <div key={c} className="catrow">
-                <span>{c}</span>
-                <div className="bar thin">
-                  <div className="bar-fill" style={{ width: `${(v / max) * 100}%` }} />
-                </div>
-                <b>{vnd(v)}</b>
-              </div>
-            ))}
-        </Panel>
+          onDelete={() => {
+            if (!confirm(`Disband "${editing.name}"?`)) return
+            update((s) => ({ ...s, habits: s.habits.filter((x) => x.id !== editing.id) }))
+            setEditing(null)
+          }}
+        />
       )}
-
-      <Panel title="Ledger">
-        {state.txs.length === 0 && <p className="muted">Nothing recorded yet.</p>}
-        <ul className="list">
-          {state.txs.slice(0, 40).map((t) => (
-            <li key={t.id}>
-              <span className="grow">
-                {t.category}
-                <small className="muted"> · {t.date.slice(5)} {t.note && `· ${t.note}`}</small>
-              </span>
-              <b className={t.type === 'income' ? 'pos' : 'neg'}>
-                {t.type === 'income' ? '+' : '−'}
-                {vnd(t.amount)}
-              </b>
-              <button className="x" aria-label="Delete" onClick={() => update((s) => ({ ...s, txs: s.txs.filter((x) => x.id !== t.id) }))}>
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      </Panel>
     </>
   )
 }

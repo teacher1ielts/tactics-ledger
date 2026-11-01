@@ -53,7 +53,7 @@ export default function SyncPanel({ sync, state, setState, close }: { sync: Sync
     try {
       const data = JSON.parse(await f.text())
       if (!isState(data)) return say('That file is not a Tactics Ledger backup.', true)
-      const next: State = { habits: data.habits, txs: data.txs, budget: data.budget ?? 0, goals: data.goals ?? [], events: data.events ?? [] }
+      const next: State = { habits: data.habits, txs: data.txs, budget: data.budget ?? 0, goals: data.goals ?? [], events: data.events ?? [], recurring: data.recurring ?? [] }
       const extra = sync.email ? ' It will also replace your cloud copy on the next sync.' : ''
       if (!window.confirm(`Replace everything on this device with the backup (${next.habits.length} habits, ${next.txs.length} transactions)?${extra}`)) return
       persistState(next)

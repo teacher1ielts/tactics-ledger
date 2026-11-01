@@ -39,6 +39,7 @@ export interface Repeat {
 export type TxType = 'income' | 'spend'
 export interface Tx {
   id: string
+  rid?: string // set when a repeating rule posted it
   date: string
   type: TxType
   amount: number
@@ -72,13 +73,26 @@ export interface State {
   budget: number // monthly spending cap, VND
   goals: Goal[]
   events: PlanItem[]
+  recurring: Recurring[]
+}
+
+/** Money that repeats (salary, rent): each due date posts a transaction on its own. */
+export interface Recurring {
+  id: string
+  type: TxType
+  amount: number
+  category: string
+  note: string
+  every: Repeat['every']
+  dom?: number
+  next: string // the next date to post
 }
 
 export const SPEND_CATS = ['Food', 'Transport', 'Bills', 'Shopping', 'Health', 'Fun', 'Study', 'Other']
 export const INCOME_CATS = ['Salary', 'Teaching', 'Gift', 'Other']
 
 const KEY = 'tactics-ledger-v1'
-const empty: State = { habits: [], txs: [], budget: 0, goals: [], events: [] }
+const empty: State = { habits: [], txs: [], budget: 0, goals: [], events: [], recurring: [] }
 
 /** Whatever is in storage (old version, hand-edited, damaged), make it a valid State instead of crashing. */
 export function sanitize(x: unknown): State {
@@ -90,6 +104,7 @@ export function sanitize(x: unknown): State {
     budget: typeof o.budget === 'number' && Number.isFinite(o.budget) ? o.budget : 0,
     goals: list<Goal>(o.goals).filter((g) => g && typeof g === 'object').map((g) => ({ ...g, deposits: list(g.deposits), milestones: list(g.milestones) })),
     events: list<PlanItem>(o.events).filter((e) => e && typeof e === 'object'),
+    recurring: list<Recurring>(o.recurring).filter((r) => r && typeof r === 'object' && Number.isFinite(r.amount) && typeof r.next === 'string'),
   }
 }
 
@@ -187,26 +202,53 @@ export const XP_PER_TASK = 5
 export function xpOf(s: State) {
   return (
     s.habits.reduce((a, h) => a + h.done.length * XP_PER_CHECK, 0) +
-    s.txs.length * XP_PER_TX +
+    s.txs.filter((t) => !t.rid).length * XP_PER_TX +
     s.events.filter((e) => e.kind === 'task' && e.done).length * XP_PER_TASK +
     s.goals.filter((g) => goalDone(g, s)).length * XP_PER_GOAL
   )
 }
 const ymd = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
+/** One step on from a date: a day, a week, or the same day next month (31st clamps to month end, never drifts). */
+export function stepRepeat(r: Repeat, d: string): string {
+  if (r.every === 'day') return shiftDay(d, 1)
+  if (r.every === 'week') return shiftDay(d, 7)
+  const dt = new Date(d + 'T12:00:00')
+  const nx = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)
+  const last = new Date(nx.getFullYear(), nx.getMonth() + 1, 0).getDate()
+  return ymd(nx.getFullYear(), nx.getMonth() + 1, Math.min(r.dom ?? dt.getDate(), last))
+}
+
 /** The next due date after finishing a repeating task: one step on from its due date, and never in the past. */
 export function nextDue(r: Repeat, base: string, today = dayKey()): string {
-  const step = (d: string): string => {
-    if (r.every === 'day') return shiftDay(d, 1)
-    if (r.every === 'week') return shiftDay(d, 7)
-    const dt = new Date(d + 'T12:00:00')
-    const nx = new Date(dt.getFullYear(), dt.getMonth() + 1, 1)
-    const last = new Date(nx.getFullYear(), nx.getMonth() + 1, 0).getDate()
-    return ymd(nx.getFullYear(), nx.getMonth() + 1, Math.min(r.dom ?? dt.getDate(), last))
-  }
-  let n = step(base)
-  for (let i = 0; i < 5000 && n <= today; i++) n = step(n)
+  let n = stepRepeat(r, base)
+  for (let i = 0; i < 5000 && n <= today; i++) n = stepRepeat(r, n)
   return n
+}
+
+/**
+ * Turn every repeating money rule that has come due into real transactions.
+ * Ids are fixed per rule and date, so two devices posting the same occurrence merge into one.
+ * Returns the same object when nothing is due, so it is safe to call as often as you like.
+ */
+export function postRecurring(s: State, today = dayKey()): State {
+  if (!s.recurring.length) return s
+  const have = new Set(s.txs.map((t) => t.id))
+  const added: Tx[] = []
+  const rules = s.recurring.map((r) => {
+    let next = r.next
+    for (let i = 0; i < 60 && next <= today; i++) {
+      const id = `rec-${r.id}-${next}`
+      if (!have.has(id)) {
+        have.add(id)
+        added.push({ id, rid: r.id, date: next, type: r.type, amount: r.amount, category: r.category, note: r.note })
+      }
+      next = stepRepeat({ every: r.every, dom: r.dom }, next)
+    }
+    return next === r.next ? r : { ...r, next }
+  })
+  if (!added.length && rules.every((r, i) => r === s.recurring[i])) return s
+  return { ...s, recurring: rules, txs: added.length ? [...added, ...s.txs].sort((x, y) => (y.date > x.date ? 1 : y.date < x.date ? -1 : 0)) : s.txs }
 }
 
 export function repeatLabel(r: Repeat) {
@@ -242,7 +284,7 @@ export const GEAR = ['', 'Belt light', 'Halo', 'Wings']
 /** A hero levels up (every 10 clears) from the habits of its job; the Merchant also counts logged transactions. */
 export function partyOf(s: State) {
   return (Object.keys(JOBS) as Job[]).map((job) => {
-    const clears = s.habits.filter((h) => h.job === job).reduce((a, h) => a + h.done.length, 0) + (job === 'Merchant' ? s.txs.length : 0)
+    const clears = s.habits.filter((h) => h.job === job).reduce((a, h) => a + h.done.length, 0) + (job === 'Merchant' ? s.txs.filter((t) => !t.rid).length : 0)
     const tier = clears >= 100 ? 3 : clears >= 50 ? 2 : clears >= 20 ? 1 : 0
     return { job, clears, level: Math.floor(clears / 10) + 1, into: clears % 10, tier, rank: RANKS[tier] }
   })

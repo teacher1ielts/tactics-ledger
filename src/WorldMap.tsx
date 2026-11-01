@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { GoalEditor } from './Edit'
 import { JOBS, dayKey, partyOf, goalProgress, parseVnd, uid, vnd, type Goal, type GoalKind, type Job, type State } from './store'
 
 type Update = (fn: (s: State) => State) => void
@@ -258,6 +259,7 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
 
 function GoalDetail({ g, state, update, close }: { g: Goal; state: State; update: Update; close: () => void }) {
   const [dep, setDep] = useState('')
+  const [editing, setEditing] = useState(false)
   const [err, setErr] = useState('')
   const { cur, target, pct } = goalProgress(g, state)
   const left = daysLeft(g)
@@ -328,6 +330,9 @@ function GoalDetail({ g, state, update, close }: { g: Goal; state: State; update
         </ul>
       )}
 
+      <button className="btn small" style={{ marginTop: 12 }} onClick={() => setEditing(true)}>
+        Edit quest
+      </button>{' '}
       <button
         className="btn danger"
         onClick={() => {
@@ -338,6 +343,21 @@ function GoalDetail({ g, state, update, close }: { g: Goal; state: State; update
       >
         Abandon quest
       </button>
+      {editing && (
+        <GoalEditor
+          goal={g}
+          close={() => setEditing(false)}
+          onSave={(ng) => {
+            patch(() => ng)
+            setEditing(false)
+          }}
+          onDelete={() => {
+            if (!confirm(`Abandon "${g.name}"?`)) return
+            update((s) => ({ ...s, goals: s.goals.filter((x) => x.id !== g.id) }))
+            close()
+          }}
+        />
+      )}
     </section>
   )
 }

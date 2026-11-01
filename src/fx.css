@@ -54,3 +54,6 @@
 .themebtn.sync-syncing { animation: pulse 1s infinite; }
 
 .name-in { width: min(100%, 22ch); padding: 3px 6px; font-size: 0.95rem; font-weight: 700; }
+
+.field { display: grid; gap: 4px; }
+.field > span { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }

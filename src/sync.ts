@@ -10,7 +10,7 @@ export const syncConfigured = Boolean(URL && ANON)
 
 const BASE_KEY = 'tl-sync-base'
 const TABLE = 'ledger_state'
-const EMPTY: State = { habits: [], txs: [], budget: 0, goals: [], events: [] }
+const EMPTY: State = { habits: [], txs: [], budget: 0, goals: [], events: [], recurring: [] }
 
 export type SyncStatus = 'off' | 'signed-out' | 'idle' | 'syncing' | 'error'
 
