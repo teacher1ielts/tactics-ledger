@@ -8,6 +8,7 @@ export type Parsed =
   | { kind: 'habit-new'; name: string; job: Job; time?: number; dur?: number }
   | { kind: 'habit-done'; habitId: string; name: string; date: string }
   | { kind: 'goal-new'; name: string; term: 'short' | 'long'; gkind: 'habit' | 'savings' | 'manual'; target: number; period?: 'week'; habitId?: string; habitName?: string; job?: Job; deadline?: string }
+  | { kind: 'task-done'; taskId: string; title: string }
   | { kind: 'unknown'; text: string }
 
 type Span = [number, number]
@@ -244,16 +245,35 @@ export function matchHabit(n: string, habits: Habit[]): Habit | null {
 /** "goal ..." / "my goals: ..." / "mục tiêu ..." at the start of a sentence or segment. */
 const GOAL_CUE = /^(?:my\s+)?(?:new\s+)?(?:goals?|muc tieu)\b\s*(?:is|are|la)?\s*[:\-]?\s*/
 
-export function parseCommand(text: string, now: Date, habits: Habit[]): Parsed[] {
+export interface OpenTask {
+  id: string
+  title: string
+}
+
+export function matchTask(n: string, tasks: OpenTask[]): OpenTask | null {
+  let best: OpenTask | null = null
+  let score = 0
+  for (const t of tasks) {
+    const toks = fold(t.title).split(/[^a-z0-9]+/).filter((w) => w.length >= 3)
+    const s = toks.filter((w) => new RegExp('\\b' + w).test(n)).length
+    if (s > score) {
+      score = s
+      best = t
+    }
+  }
+  return best
+}
+
+export function parseCommand(text: string, now: Date, habits: Habit[], tasks: OpenTask[] = []): Parsed[] {
   const o = text.normalize('NFC')
   const n = fold(o)
   const lead = o.length - o.trimStart().length
   const gm = GOAL_CUE.exec(n.slice(lead))
   const start = gm ? lead + gm[0].length : 0 // one "goal" can introduce a whole list
-  return split(o.slice(start), n.slice(start), habits).map((seg) => parseSegment(seg, now, habits, !!gm))
+  return split(o.slice(start), n.slice(start), habits).map((seg) => parseSegment(seg, now, habits, !!gm, tasks))
 }
 
-function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false): Parsed {
+function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false, tasks: OpenTask[] = []): Parsed {
   const o = seg
   const n = fold(o)
 
@@ -268,6 +288,12 @@ function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false)
       const d = findDate(n, now, true)
       return { kind: 'habit-done', habitId: h.id, name: h.name, date: d && d.date <= fmt(now) ? d.date : fmt(now) }
     }
+  }
+
+  // 1b. finishing an open task (reached only when no habit matched)
+  if (DONE_RE.test(n)) {
+    const t = matchTask(n, tasks)
+    if (t) return { kind: 'task-done', taskId: t.id, title: t.title }
   }
 
   // 2. new habit
@@ -294,7 +320,10 @@ function parseSegment(seg: string, now: Date, habits: Habit[], goalMode = false)
   const time = findTime(n2, false)
   const n3 = time ? blank(n2, [time.span]) : n2
   const date = findDate(n3, now)
-  const spans = [dur?.span, time?.span, date?.span].filter(Boolean) as Span[]
+  // "by friday" / "before 5/11": the little word belongs to the date, not the title
+  const pre = date ? /(?:by|before|until|due|truoc|den)\s+$/.exec(n3.slice(0, date.span[0])) : null
+  const dateSpan: Span | undefined = date ? [pre ? date.span[0] - pre[0].length : date.span[0], date.span[1]] : undefined
+  const spans = [dur?.span, time?.span, dateSpan].filter(Boolean) as Span[]
   const title = stripFiller(o, n, spans) || 'Untitled'
   const today = fmt(now)
 

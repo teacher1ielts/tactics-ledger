@@ -26,6 +26,7 @@ export interface PlanItem {
   start?: number // minutes from midnight
   deadline?: string
   done?: boolean
+  doneAt?: string // YYYY-MM-DD it was ticked off
 }
 
 export type TxType = 'income' | 'spend'
@@ -162,13 +163,18 @@ export const goalDone = (g: Goal, s: State) => !g.period && goalProgress(g, s).p
 export const XP_PER_CHECK = 10
 export const XP_PER_TX = 3
 export const XP_PER_GOAL = 50
+export const XP_PER_TASK = 5
 export function xpOf(s: State) {
   return (
     s.habits.reduce((a, h) => a + h.done.length * XP_PER_CHECK, 0) +
     s.txs.length * XP_PER_TX +
+    s.events.filter((e) => e.kind === 'task' && e.done).length * XP_PER_TASK +
     s.goals.filter((g) => goalDone(g, s)).length * XP_PER_GOAL
   )
 }
+/** Tick or untick a task/event, remembering the day it was finished. */
+export const toggleDone = (e: PlanItem): PlanItem => (e.done ? { ...e, done: false, doneAt: undefined } : { ...e, done: true, doneAt: dayKey() })
+
 export const levelOf = (xp: number) => ({ level: Math.floor(xp / 100) + 1, into: xp % 100 })
 
 export const RANKS = ['Rookie', 'Runner', 'Netrunner', 'Legend']

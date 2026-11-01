@@ -31,6 +31,7 @@ import { dueKey, hasDebrief, useAlerts, useReminders } from './alerts'
 import { reviewSummary, weeklyReview } from './review'
 import { isMuted, play, setMuted, unlock } from './sfx'
 import SyncPanel from './SyncPanel'
+import Todo from './Todo'
 import { useSync } from './sync'
 
 type Tab = 'camp' | 'habits' | 'treasury' | 'map' | 'intel' | 'command'
@@ -102,7 +103,7 @@ export default function App() {
       </header>
 
       <main>
-        {tab === 'camp' && <Camp state={state} update={update} debrief={debriefDue ? () => go('intel') : null} />}
+        {tab === 'camp' && <Camp state={state} update={update} debrief={debriefDue ? () => go('intel') : null} openTodo={() => go('command')} />}
         {tab === 'habits' && <Habits state={state} update={update} />}
         {tab === 'treasury' && <Treasury state={state} update={update} />}
         {tab === 'map' && <WorldMap state={state} update={update} cyber={theme === 'cyber'} />}
@@ -168,7 +169,7 @@ function toggleHabit(update: Update, id: string, day: string) {
   }))
 }
 
-function Camp({ state, update, debrief }: { state: State; update: Update; debrief: (() => void) | null }) {
+function Camp({ state, update, debrief, openTodo }: { state: State; update: Update; debrief: (() => void) | null; openTodo: () => void }) {
   const rv = debrief ? weeklyReview(state) : null
   const today = dayKey()
   const { income, spent } = useMonthStats(state)
@@ -231,6 +232,8 @@ function Camp({ state, update, debrief }: { state: State; update: Update; debrie
           </ul>
         </Panel>
       )}
+
+      <Todo state={state} update={update} compact onOpen={openTodo} />
 
       {state.goals.length > 0 && (
         <Panel title="Active Quests">

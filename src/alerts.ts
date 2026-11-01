@@ -60,7 +60,7 @@ export async function notify(title: string, body: string, tag: string) {
   }
 }
 
-export const hasDebrief = (s: State) => s.habits.length > 0 || s.txs.length > 0
+export const hasDebrief = (s: State) => s.habits.length > 0 || s.txs.length > 0 || s.events.some((e) => e.kind === 'task')
 
 /** While the app is open: fire the weekly debrief and habit reminders when their time comes. */
 export function useReminders(state: State, alerts: Alerts, setAlerts: (fn: (a: Alerts) => Alerts) => void) {

@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { parseCommand, type Parsed } from './parser'
 import { autoScheduleTasks, blocksFor, hhmm, slotHabits } from './scheduler'
 import { play } from './sfx'
-import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, shiftDay, uid, vnd, type State } from './store'
+import Todo from './Todo'
+import { INCOME_CATS, JOBS, SPEND_CATS, dayKey, shiftDay, toggleDone, uid, vnd, type State } from './store'
 
 type Update = (fn: (s: State) => State) => void
 type Item = { key: string; p: Parsed }
@@ -50,7 +51,7 @@ export default function Command({ state, update }: { state: State; update: Updat
 
   const parse = (t: string) => {
     if (!t.trim()) return
-    setItems(parseCommand(t, new Date(), state.habits).map((p) => ({ key: uid(), p })))
+    setItems(parseCommand(t, new Date(), state.habits, state.events.filter((e) => e.kind === 'task' && !e.done)).map((p) => ({ key: uid(), p })))
     setNote('')
   }
 
@@ -115,6 +116,8 @@ export default function Command({ state, update }: { state: State; update: Updat
               },
             ],
           }
+        } else if (p.kind === 'task-done') {
+          n = { ...n, events: n.events.map((e) => (e.id === p.taskId && !e.done ? toggleDone(e) : e)) }
         } else if (p.kind === 'habit-done')
           n = { ...n, habits: n.habits.map((h) => (h.id === p.habitId && !h.done.includes(p.date) ? { ...h, done: [...h.done, p.date] } : h)) }
       }
@@ -206,6 +209,8 @@ export default function Command({ state, update }: { state: State; update: Updat
         </section>
       )}
 
+      <Todo state={state} update={update} />
+
       <section className="panel">
         <h2>
           Turn Order
@@ -235,7 +240,7 @@ export default function Command({ state, update }: { state: State; update: Updat
                 </button>
               ) : (
                 <>
-                  <button className="check" onClick={() => update((s) => ({ ...s, events: s.events.map((e) => (e.id === b.ref ? { ...e, done: !e.done } : e)) }))} aria-label={`Toggle ${b.title}`}>
+                  <button className="check" onClick={() => update((s) => ({ ...s, events: s.events.map((e) => (e.id === b.ref ? toggleDone(e) : e)) }))} aria-label={`Toggle ${b.title}`}>
                     {b.done ? '◆' : '◇'}
                   </button>
                   <button className="x" aria-label="Delete" onClick={() => update((s) => ({ ...s, events: s.events.filter((e) => e.id !== b.ref) }))}>
@@ -256,6 +261,9 @@ export default function Command({ state, update }: { state: State; update: Updat
               <ul className="list">
                 {unscheduled.map((t) => (
                   <li key={t.id}>
+                    <button className="check" onClick={() => update((s) => ({ ...s, events: s.events.map((e) => (e.id === t.id ? toggleDone(e) : e)) }))} aria-label={`Done: ${t.title}`}>
+                      ◇
+                    </button>
                     <span className="grow">
                       📝 {t.title}
                       <small className="muted"> · {t.dur} min{t.deadline ? ` · due ${dayLabel(t.deadline)}` : ''}</small>
@@ -349,6 +357,12 @@ function Card({ p, state, onCat, onName }: { p: Parsed; state: State; onCat: (c:
       <>
         {JOBS[p.job]} New habit <b>{p.name}</b>
         <small className="muted"> · {p.job}{p.time !== undefined ? ` · daily ${hhmm(p.time)}` : ''}</small>
+      </>
+    )
+  if (p.kind === 'task-done')
+    return (
+      <>
+        ✔ Finish task <b>{p.title}</b>
       </>
     )
   if (p.kind === 'habit-done')

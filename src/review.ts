@@ -15,6 +15,9 @@ export interface Review {
   income: number
   topCat?: { cat: string; amount: number }
   near: { name: string; pct: number }[]
+  tasksDone: number
+  tasksOpen: number
+  overdue: number
   empty: boolean
 }
 
@@ -46,7 +49,11 @@ export function weeklyReview(s: State, today = dayKey()): Review {
     .sort((a, b) => b.pct - a.pct)
     .slice(0, 2)
 
-  const empty = s.habits.length === 0 && spend === 0 && income === 0
+  const tasks = s.events.filter((e) => e.kind === 'task')
+  const tasksDone = tasks.filter((e) => e.done && e.doneAt && within(e.doneAt, from, today)).length
+  const open = tasks.filter((e) => !e.done)
+  const overdue = open.filter((e) => (e.deadline ?? e.date ?? '9999-12-31') < today).length
+  const empty = s.habits.length === 0 && spend === 0 && income === 0 && tasks.length === 0
   let score = rate * 100
   if (prevSpend > 0 && spend <= prevSpend) score += 5
   if (prevSpend > 0 && spend > prevSpend * 1.3) score -= 8
@@ -67,6 +74,9 @@ export function weeklyReview(s: State, today = dayKey()): Review {
     income,
     topCat: top ? { cat: top[0], amount: top[1] } : undefined,
     near,
+    tasksDone,
+    tasksOpen: open.length,
+    overdue,
     empty,
   }
 }
@@ -86,6 +96,7 @@ export function reviewLines(r: Review): string[] {
     out.push(`Money: spent ${vnd(r.spend)}${delta}, earned ${vnd(r.income)}.`)
     if (r.topCat) out.push(`Biggest spend category: ${r.topCat.cat} at ${vnd(r.topCat.amount)}.`)
   }
+  if (r.tasksDone || r.tasksOpen) out.push(`Tasks: ${r.tasksDone} finished this week, ${r.tasksOpen} still open${r.overdue ? ` (${r.overdue} overdue)` : ''}.`)
   r.near.forEach((g) => out.push(`Closest quest: ${g.name} at ${Math.round(g.pct * 100)}%.`))
 
   // one concrete suggestion
@@ -100,6 +111,7 @@ export function reviewSummary(r: Review): string {
   if (r.empty) return 'Your weekly debrief is ready.'
   const parts = [`Grade ${r.grade}`]
   if (r.possible) parts.push(`${r.clears}/${r.possible} habit clears`)
+  if (r.tasksDone) parts.push(`${r.tasksDone} tasks done`)
   if (r.spend > 0) parts.push(`spent ${vnd(r.spend)}`)
   return parts.join(' · ')
 }

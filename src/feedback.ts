@@ -56,18 +56,19 @@ const merge = (a: Peak | null, b: Peak): Peak => ({
  */
 export function useFeedback(state: State) {
   const [bursts, setBursts] = useState<Burst[]>([])
-  const prev = useRef<{ clears: number; txs: number } | null>(null)
+  const prev = useRef<{ clears: number; txs: number; tasks: number } | null>(null)
   const peak = useRef<Peak | null>(null)
 
   useEffect(() => {
     const snap = snapshot(state)
     const clears = state.habits.reduce((a, h) => a + h.done.length, 0)
     const txs = state.txs.length
+    const tasks = state.events.filter((e) => e.kind === 'task' && e.done).length
 
     if (!peak.current) {
       peak.current = merge(readPeak(), snap)
       writePeak(peak.current)
-      prev.current = { clears, txs }
+      prev.current = { clears, txs, tasks }
       return
     }
 
@@ -75,7 +76,7 @@ export function useFeedback(state: State) {
       silence.on = false
       peak.current = merge(peak.current, snap)
       writePeak(peak.current)
-      prev.current = { clears, txs }
+      prev.current = { clears, txs, tasks }
       return
     }
 
@@ -97,7 +98,7 @@ export function useFeedback(state: State) {
     writePeak(peak.current)
 
     const was = prev.current
-    prev.current = { clears, txs }
+    prev.current = { clears, txs, tasks }
 
     if (found.length) {
       play(found.some((b) => b.kind === 'rank') ? 'rankup' : found.some((b) => b.kind === 'quest') ? 'quest' : 'levelup')
@@ -109,6 +110,7 @@ export function useFeedback(state: State) {
       setBursts((b) => [...b, ...found].slice(0, 4))
     } else if (was && clears > was.clears) play('tick')
     else if (was && txs > was.txs) play('coin')
+    else if (was && tasks > was.tasks) play('tick')
   }, [state])
 
   return { bursts, next: () => setBursts((b) => b.slice(1)) }
