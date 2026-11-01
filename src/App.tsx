@@ -103,7 +103,7 @@ export default function App() {
       </header>
 
       <main>
-        {tab === 'camp' && <Camp state={state} update={update} debrief={debriefDue ? () => go('intel') : null} openTodo={() => go('command')} />}
+        {tab === 'camp' && <Camp state={state} update={update} debrief={debriefDue ? () => go('intel') : null} openTodo={() => go('command')} goTo={go} />}
         {tab === 'habits' && <Habits state={state} update={update} />}
         {tab === 'treasury' && <Treasury state={state} update={update} />}
         {tab === 'map' && <WorldMap state={state} update={update} cyber={theme === 'cyber'} />}
@@ -169,7 +169,8 @@ function toggleHabit(update: Update, id: string, day: string) {
   }))
 }
 
-function Camp({ state, update, debrief, openTodo }: { state: State; update: Update; debrief: (() => void) | null; openTodo: () => void }) {
+function Camp({ state, update, debrief, openTodo, goTo }: { state: State; update: Update; debrief: (() => void) | null; openTodo: () => void; goTo: (t: Tab) => void }) {
+  const fresh = state.habits.length === 0 && state.txs.length === 0 && state.goals.length === 0 && state.events.length === 0
   const rv = debrief ? weeklyReview(state) : null
   const today = dayKey()
   const { income, spent } = useMonthStats(state)
@@ -230,6 +231,24 @@ function Camp({ state, update, debrief, openTodo }: { state: State; update: Upda
               </li>
             ))}
           </ul>
+        </Panel>
+      )}
+
+      {fresh && (
+        <Panel title="Start Here">
+          <p style={{ marginTop: 0 }}>Welcome, Commander. Three quick ways to begin:</p>
+          <div className="stack">
+            <button className="btn" onClick={() => goTo('habits')}>
+              1 · Recruit a habit
+            </button>
+            <button className="btn" onClick={() => goTo('treasury')}>
+              2 · Log your first spend
+            </button>
+            <button className="btn" onClick={() => goTo('command')}>
+              3 · Say or type a command
+            </button>
+          </div>
+          <p className="muted">Tip: in Command you can type things like "gym at 6pm, lunch 80k" or "goal 2 muay thai a week".</p>
         </Panel>
       )}
 
@@ -373,7 +392,6 @@ function Treasury({ state, update }: { state: State; update: Update }) {
 
   return (
     <>
-      <ImportPanel state={state} update={update} />
       <Panel title="Record Transaction">
         <div className="seg">
           <button className={type === 'spend' ? 'on' : ''} onClick={() => switchType('spend')}>
@@ -429,6 +447,8 @@ function Treasury({ state, update }: { state: State; update: Update }) {
           </>
         )}
       </Panel>
+
+      <ImportPanel state={state} update={update} />
 
       {byCat.size > 0 && (
         <Panel title="Spending by Category">

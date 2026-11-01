@@ -142,3 +142,13 @@
 .hero { display: grid; gap: 4px; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .hero .bar.thin { margin: 0; }
+
+/* Narrow phones: title on its own row, controls and XP bar on the next */
+.top { min-width: 0; }
+.title, .sub { min-width: 0; }
+@media (max-width: 440px) {
+  .top { flex-wrap: wrap; row-gap: 10px; }
+  .hdr-right { flex: 1 1 100%; min-width: 0; }
+  .hdr-right .xp { flex: 1 1 auto; width: auto; min-width: 48px; }
+  .sub { white-space: nowrap; }
+}

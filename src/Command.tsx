@@ -167,7 +167,7 @@ export default function Command({ state, update }: { state: State; update: Updat
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && parse(text)}
-            placeholder={listening ? 'Listening…' : 'Say or type: gym 6pm, lunch 80k…'}
+            placeholder={listening ? 'Listening…' : 'Say or type a command'}
           />
           <button className="btn" onClick={() => parse(text)} disabled={!text.trim()}>
             Go

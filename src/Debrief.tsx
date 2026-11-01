@@ -40,7 +40,7 @@ export default function Debrief({ state, alerts, setAlerts }: { state: State; al
         ))}
       </ul>
 
-      <details className="paste" open={perm !== 'granted'}>
+      <details className="paste">
         <summary>Alerts &amp; reminders</summary>
         <div className="stack">
           <label className="row alert-row">

@@ -73,10 +73,23 @@ export const INCOME_CATS = ['Salary', 'Teaching', 'Gift', 'Other']
 const KEY = 'tactics-ledger-v1'
 const empty: State = { habits: [], txs: [], budget: 0, goals: [], events: [] }
 
+/** Whatever is in storage (old version, hand-edited, damaged), make it a valid State instead of crashing. */
+export function sanitize(x: unknown): State {
+  const o = (x && typeof x === 'object' ? x : {}) as Partial<Record<keyof State, unknown>>
+  const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : [])
+  return {
+    habits: list<Habit>(o.habits).filter((h) => h && typeof h === 'object').map((h) => ({ ...h, done: list<string>(h.done) })),
+    txs: list<Tx>(o.txs).filter((t) => t && typeof t === 'object' && Number.isFinite(t.amount)),
+    budget: typeof o.budget === 'number' && Number.isFinite(o.budget) ? o.budget : 0,
+    goals: list<Goal>(o.goals).filter((g) => g && typeof g === 'object').map((g) => ({ ...g, deposits: list(g.deposits), milestones: list(g.milestones) })),
+    events: list<PlanItem>(o.events).filter((e) => e && typeof e === 'object'),
+  }
+}
+
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? { ...empty, ...JSON.parse(raw) } : empty
+    return raw ? sanitize(JSON.parse(raw)) : empty
   } catch {
     return empty
   }
