@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { RecurringEditor, TxEditor } from './Edit'
 import ImportPanel from './ImportPanel'
-import { INCOME_CATS, SPEND_CATS, dayKey, parseVnd, postRecurring, repeatLabel, uid, vnd, type Recurring, type State, type Tx, type TxType } from './store'
+import { INCOME_CATS, IMPORTED, SPEND_CATS, dayKey, parseVnd, postRecurring, repeatLabel, uid, vnd, type Recurring, type State, type Tx, type TxType } from './store'
 
 type Update = (fn: (s: State) => State) => void
 
@@ -51,6 +51,12 @@ export default function Treasury({ state, update }: { state: State; update: Upda
 
   const cats = type === 'spend' ? SPEND_CATS : INCOME_CATS
   const earliest = state.txs.reduce((m, t) => (t.date.slice(0, 7) < m ? t.date.slice(0, 7) : m), thisMonth)
+
+  const years = Array.from({ length: Number(thisMonth.slice(0, 4)) - Number(earliest.slice(0, 4)) + 1 }, (_, i) => String(Number(earliest.slice(0, 4)) + i))
+  const pickYear = (y: string) => {
+    const m = `${y}-${month.slice(5)}`
+    setMonth(m > thisMonth ? thisMonth : m < earliest ? earliest : m)
+  }
 
   const monthTxs = state.txs.filter((t) => t.date.startsWith(month))
   const income = monthTxs.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0)
@@ -163,6 +169,14 @@ export default function Treasury({ state, update }: { state: State; update: Upda
       <Panel
         title="Month"
         right={
+          <span className="row" style={{ flex: 'none', gap: 6 }}>
+            {years.length > 1 && (
+              <select className="mini" value={month.slice(0, 4)} onChange={(e) => pickYear(e.target.value)} aria-label="Year">
+                {years.map((y) => (
+                  <option key={y}>{y}</option>
+                ))}
+              </select>
+            )}
           <span className="seg inline">
             <button onClick={() => setMonth(shiftMonth(month, -1))} disabled={month <= earliest} aria-label="Previous month">
               ◀
@@ -173,6 +187,7 @@ export default function Treasury({ state, update }: { state: State; update: Upda
             <button onClick={() => setMonth(shiftMonth(month, 1))} disabled={month >= thisMonth} aria-label="Next month">
               ▶
             </button>
+          </span>
           </span>
         }
       >
@@ -249,7 +264,7 @@ export default function Treasury({ state, update }: { state: State; update: Upda
                 <small className="muted">
                   {' '}
                   · {shortDate(t.date)}
-                  {t.rid ? ' · ↻' : ''}
+                  {t.rid && t.rid !== IMPORTED ? ' · ↻' : ''}
                   {t.note && ` · ${t.note}`}
                 </small>
               </span>

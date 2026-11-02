@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { readStoredBackup } from './store'
 
 const KEY = 'tactics-ledger-v1'
 
@@ -23,13 +24,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, { 
 
   render() {
     if (!this.state.error) return this.props.children
-    const raw = (() => {
-      try {
-        return localStorage.getItem(KEY)
-      } catch {
-        return null
-      }
-    })()
+    const raw = readStoredBackup()
     return (
       <div className="shell" style={{ paddingTop: 40 }}>
         <section className="panel">

@@ -2,7 +2,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { silence } from './feedback'
 import { mergeState, stable } from './merge'
-import { persistState, type State } from './store'
+import { byNewest, isImported, persistState, type State } from './store'
 
 const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
@@ -19,6 +19,9 @@ function getClient() {
   client ??= import('@supabase/supabase-js').then((m) => m.createClient(URL!, ANON!, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'tl-auth' } }))
   return client
 }
+
+/** The synced copy leaves out imported history: it is large, never changes, and each device imports its own file. */
+const withoutImported = (s: State): State => (s.txs.some(isImported) ? { ...s, txs: s.txs.filter((t) => !isImported(t)) } : s)
 
 function loadBase(): State | null {
   try {
@@ -73,7 +76,8 @@ export function useSync(state: State, setState: (s: State) => void) {
         if (e1) throw e1
         const local = stateRef.current
         const remote = (row?.data ?? EMPTY) as State
-        const merged = mergeState(loadBase(), local, remote)
+        const localLite = withoutImported(local)
+        const merged = mergeState(loadBase(), localLite, remote)
 
         if (!row) {
           const { error: e2 } = await sb.from(TABLE).insert({ data: merged, version: 1 })
@@ -95,10 +99,11 @@ export function useSync(state: State, setState: (s: State) => void) {
           // edited while syncing: keep the old baseline and go round again, so nothing is mistaken for a delete
           again.current = true
         } else {
-          if (stable(merged) !== stable(local)) {
-            if (!persistState(merged)) throw new Error('Could not save to this device.')
+          if (stable(merged) !== stable(localLite)) {
+            const final: State = { ...merged, txs: [...merged.txs, ...local.txs.filter(isImported)].sort(byNewest) }
+            if (!persistState(final)) throw new Error('Could not save to this device.')
             silence.on = true
-            setState(merged)
+            setState(final)
           }
           saveBase(merged)
         }
@@ -147,7 +152,7 @@ export function useSync(state: State, setState: (s: State) => void) {
   useEffect(() => {
     if (!session) return
     const base = loadBase()
-    if (!base || stable(base) !== stable(state)) schedule(3000)
+    if (!base || stable(base) !== stable(withoutImported(state))) schedule(3000)
     return () => clearTimeout(timer.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, session])

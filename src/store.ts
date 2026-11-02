@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { pack, unpack } from './pack'
 
 export type Job = 'Scholar' | 'Knight' | 'Monk' | 'Merchant'
 export const JOBS: Record<Job, string> = {
@@ -88,10 +89,15 @@ export interface Recurring {
   next: string // the next date to post
 }
 
-export const SPEND_CATS = ['Food', 'Transport', 'Bills', 'Shopping', 'Health', 'Fun', 'Study', 'Other']
-export const INCOME_CATS = ['Salary', 'Teaching', 'Gift', 'Other']
+export const SPEND_CATS = ['Food', 'Transport', 'Bills', 'Subscriptions', 'Shopping', 'Health', 'Fun', 'Study', 'Rent', 'Business', 'Household', 'Family', 'Fees', 'Other']
+export const INCOME_CATS = ['Salary', 'Teaching', 'Gift', 'Interest', 'Other']
 
-const KEY = 'tactics-ledger-v1'
+const KEY = 'tactics-ledger-v1' // everything except imported history
+const HIST_KEY = 'tactics-ledger-history' // imported history: compressed once, rewritten only when it changes
+export const IMPORTED = 'i' // Tx.rid of a transaction that came from a history file
+export const isImported = (t: Tx) => t.rid === IMPORTED
+export const byNewest = (a: Tx, b: Tx) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0)
+let savedHist: Tx[] = []
 const empty: State = { habits: [], txs: [], budget: 0, goals: [], events: [], recurring: [] }
 
 /** Whatever is in storage (old version, hand-edited, damaged), make it a valid State instead of crashing. */
@@ -108,23 +114,44 @@ export function sanitize(x: unknown): State {
   }
 }
 
+function readHistory(): Tx[] {
+  try {
+    const raw = unpack(localStorage.getItem(HIST_KEY))
+    const list: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(list) ? (list as Tx[]).filter((t) => t && typeof t === 'object' && Number.isFinite(t.amount)).map((t) => ({ ...t, rid: IMPORTED })) : []
+  } catch {
+    return []
+  }
+}
+
 function load(): State {
   try {
     const raw = localStorage.getItem(KEY)
-    return raw ? sanitize(JSON.parse(raw)) : empty
+    const base = raw ? sanitize(JSON.parse(raw)) : empty
+    const hist = readHistory()
+    savedHist = hist
+    return hist.length ? { ...base, txs: [...base.txs, ...hist].sort(byNewest) } : base
   } catch {
     return empty
+  }
+}
+
+/** Everything the app holds, as one JSON string (for the "Save a backup" button on the crash screen). */
+export function readStoredBackup(): string | null {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return null
+    const o = JSON.parse(raw)
+    return JSON.stringify({ ...o, txs: [...(Array.isArray(o.txs) ? o.txs : []), ...readHistory()] })
+  } catch {
+    return localStorage.getItem(KEY)
   }
 }
 
 export function useStore() {
   const [state, setState] = useState<State>(load)
   useEffect(() => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(state))
-    } catch {
-      /* storage unavailable: keep working in memory */
-    }
+    persistState(state) // storage unavailable? keep working in memory
   }, [state])
   return [state, setState] as const
 }
@@ -293,7 +320,16 @@ export function partyOf(s: State) {
 /** Write state straight to storage (sync does this before recording a new baseline). */
 export function persistState(s: State): boolean {
   try {
-    localStorage.setItem(KEY, JSON.stringify(s))
+    const rest: Tx[] = []
+    const hist: Tx[] = []
+    for (const t of s.txs) (isImported(t) ? hist : rest).push(t)
+    localStorage.setItem(KEY, JSON.stringify({ ...s, txs: rest }))
+    const same = hist.length === savedHist.length && hist.every((t, i) => t === savedHist[i])
+    if (!same) {
+      if (hist.length) localStorage.setItem(HIST_KEY, pack(JSON.stringify(hist)))
+      else localStorage.removeItem(HIST_KEY)
+      savedHist = hist
+    }
     return true
   } catch {
     return false
