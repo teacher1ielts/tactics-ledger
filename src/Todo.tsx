@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import MicInput from './MicInput'
 import { T } from './labels'
 import { TaskEditor } from './Edit'
 import { parseCommand } from './parser'
@@ -99,7 +100,7 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
           add()
         }}
       >
-        <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a task…" />
+        <MicInput value={text} onChange={setText} placeholder="Add a task…" />
         <button className="btn small" type="submit" disabled={!text.trim()}>
           Add
         </button>

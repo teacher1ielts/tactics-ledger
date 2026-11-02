@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
-import { T } from './labels'
+import MicInput from './MicInput'
+import { T, isPlain } from './labels'
 import { GoalEditor } from './Edit'
 import { JOBS, dayKey, partyOf, goalProgress, parseVnd, uid, vnd, type Goal, type GoalKind, type Job, type State } from './store'
 
@@ -33,7 +34,7 @@ const amountText = (g: Goal, cur: number, target: number) =>
 
 export default function WorldMap({ state, update, theme }: { state: State; update: Update; theme: 'clear' | 'cyber' | 'tactics' }) {
   const cyber = theme === 'cyber'
-  const clear = theme === 'clear'
+  const clear = theme !== 'cyber'
   const [show3d, setShow3d] = useState(false)
   const [sel, setSel] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -241,7 +242,7 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
           save()
         }}
       >
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Quest name, e.g. IELTS 7.0" />
+        <MicInput value={name} onChange={setName} placeholder={isPlain() ? "Goal name, e.g. IELTS 7.0" : "Quest name, e.g. IELTS 7.0"} />
         <div className="seg">
           <button type="button" className={term === 'short' ? 'on' : ''} onClick={() => setTerm('short')}>
             Short-term ⚑

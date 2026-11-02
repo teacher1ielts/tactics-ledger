@@ -1,0 +1,56 @@
+/* ============ TACTICS: Final Fantasy Tactics look, tuned to be easy to read ============
+   Blue window panels with a gold frame, parchment inputs, serif type. Sentence-case headings, bigger text,
+   high-contrast colours. Plain names are used (see labels.ts). */
+:root[data-theme='tactics'] {
+  --bg: #101530;
+  --stone: #1b2552;
+  --stone-2: #26336e;
+  --gold: #f0c35a;
+  --gold-dim: #a98a3e;
+  --parch: #f6ecce;
+  --ink: #1f1809;
+  --text: #fbf5e2;
+  --muted: #cfcbb4;
+  --pos: #8ff09c;
+  --neg: #ff9d8c;
+}
+[data-theme='tactics'] body { font-size: 17px; line-height: 1.5; }
+[data-theme='tactics'] .title { font-size: 1.4rem; letter-spacing: 0.03em; text-transform: none; }
+[data-theme='tactics'] .sub { font-size: 0.9rem; color: var(--muted); }
+[data-theme='tactics'] .panel { padding: 16px 18px; border-radius: 6px; box-shadow: inset 0 0 0 2px var(--gold-dim), 0 4px 0 #000; }
+[data-theme='tactics'] .panel h2 {
+  font-size: 1.15rem; letter-spacing: 0.02em; text-transform: none; border-bottom: 2px solid var(--gold-dim);
+  padding-bottom: 8px; margin-bottom: 12px; color: var(--gold);
+}
+[data-theme='tactics'] .muted { color: var(--muted); font-size: 0.95rem; }
+[data-theme='tactics'] small { font-size: 0.875rem; }
+[data-theme='tactics'] .list li { padding: 12px 0; border-bottom: 1px solid rgba(240, 195, 90, 0.35); }
+[data-theme='tactics'] .list li.done .grow { opacity: 1; color: var(--muted); }
+[data-theme='tactics'] .check { width: 44px; height: 44px; font-size: 1.8rem; }
+[data-theme='tactics'] input, [data-theme='tactics'] select, [data-theme='tactics'] textarea { font-size: 1.05rem; min-height: 46px; border-radius: 4px; }
+[data-theme='tactics'] input::placeholder { color: #6b5d3d; }
+[data-theme='tactics'] .btn { text-transform: none; letter-spacing: 0.02em; font-size: 1rem; min-height: 44px; border-radius: 4px; }
+[data-theme='tactics'] .btn.small { min-height: 34px; font-size: 0.9rem; }
+[data-theme='tactics'] .seg button { text-transform: none; letter-spacing: 0; font-size: 1rem; min-height: 42px; }
+[data-theme='tactics'] .seg.inline button { min-height: 32px; font-size: 0.9rem; }
+[data-theme='tactics'] .stats small { text-transform: none; letter-spacing: 0; font-size: 0.85rem; }
+[data-theme='tactics'] .stats b { font-size: 1.1rem; }
+[data-theme='tactics'] .chip { font-size: 0.875rem; padding: 3px 9px; }
+[data-theme='tactics'] .nav .navbtn { text-transform: none; letter-spacing: 0; font-size: 0.8rem; padding: 8px 0 10px; }
+[data-theme='tactics'] .navbtn span { font-size: 1.45rem; }
+[data-theme='tactics'] .navbtn.on { color: var(--gold); box-shadow: inset 0 3px 0 var(--gold); }
+[data-theme='tactics'] .catrow { font-size: 1rem; }
+[data-theme='tactics'] .catrow span { width: 90px; }
+[data-theme='tactics'] .mic { min-height: 46px; width: 50px; }
+[data-theme='tactics'] .tag { font-size: 0.9rem; }
+[data-theme='tactics'] .warn { color: #ffd56b; }
+[data-theme='tactics'] .goal-card {
+  display: grid; gap: 8px; width: 100%; text-align: left; margin: 0 0 12px; padding: 12px 14px;
+  background: #121a3e; border: 2px solid var(--gold-dim); border-radius: 4px; color: var(--text); font-family: inherit;
+}
+[data-theme='tactics'] .goal-card.sel { border-color: var(--gold); }
+[data-theme='tactics'] .goal-card .goal-top { display: flex; justify-content: space-between; gap: 10px; font-size: 1.05rem; }
+[data-theme='tactics'] .goal-card .goal-pct { color: var(--gold); font-weight: 700; }
+[data-theme='tactics'] .goal-card.done .goal-pct { color: var(--pos); }
+[data-theme='tactics'] .goal-card .bar { display: block; margin: 0; }
+[data-theme='tactics'] .goal-card .bar-fill { display: block; height: 100%; }

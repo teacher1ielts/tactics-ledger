@@ -7,13 +7,14 @@ import './styles.css'
 import './cyber.css'
 import './fx.css'
 import './clear.css'
+import './tactics.css'
 
 // apply the saved theme before the first paint (also used by the crash screen)
 try {
-  const saved = localStorage.getItem('tl-theme2')
-  document.documentElement.dataset.theme = saved === 'cyber' || saved === 'tactics' ? saved : 'clear'
+  const saved = localStorage.getItem('tl-theme3')
+  document.documentElement.dataset.theme = saved === 'cyber' || saved === 'clear' ? saved : 'tactics'
 } catch {
-  document.documentElement.dataset.theme = 'clear'
+  document.documentElement.dataset.theme = 'tactics'
 }
 
 registerSW({ immediate: true })

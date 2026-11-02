@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import MicInput from './MicInput'
 import { T } from './labels'
 import { RecurringEditor, TxEditor } from './Edit'
 import ImportPanel from './ImportPanel'
@@ -121,8 +122,8 @@ export default function Treasury({ state, update }: { state: State; update: Upda
                 <option key={c}>{c}</option>
               ))}
             </select>
-            <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" />
-          </div>
+            </div>
+          <MicInput value={note} onChange={setNote} placeholder="Note (optional)" />
           <div className="row">
             <input type="date" value={date} max={every ? undefined : today} onChange={(e) => setDate(e.target.value)} aria-label="Date" />
             <select value={every} onChange={(e) => setEvery(e.target.value as '' | Recurring['every'])} aria-label="Repeats">

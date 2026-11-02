@@ -42,7 +42,7 @@ function dayLabel(date: string) {
 
 export default function Command({ state, update }: { state: State; update: Update }) {
   const [text, setText] = useState('')
-  const [lang, setLang] = useState<'vi-VN' | 'en-US'>('vi-VN')
+  const [lang, setLang] = useState<'vi-VN' | 'en-US'>(() => (localStorage.getItem('tl-lang') === 'en-US' ? 'en-US' : 'vi-VN'))
   const [listening, setListening] = useState(false)
   const [items, setItems] = useState<Item[]>([])
   const [note, setNote] = useState('')
@@ -157,7 +157,7 @@ export default function Command({ state, update }: { state: State; update: Updat
           {T('Command')}
           <span className="seg inline">
             {(['vi-VN', 'en-US'] as const).map((l) => (
-              <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)} disabled={listening}>
+              <button key={l} className={lang === l ? 'on' : ''} onClick={() => { setLang(l); try { localStorage.setItem('tl-lang', l) } catch { /* ignore */ } }} disabled={listening}>
                 {l === 'vi-VN' ? 'VI' : 'EN'}
               </button>
             ))}

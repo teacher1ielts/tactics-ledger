@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import MicInput from './MicInput'
 import {
   INCOME_CATS,
   JOBS,
@@ -46,20 +47,20 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('camp')
   const [theme, setTheme] = useState<'clear' | 'cyber' | 'tactics'>(() => {
     try {
-      const saved = localStorage.getItem('tl-theme2')
-      return saved === 'cyber' || saved === 'tactics' ? saved : 'clear'
+      const saved = localStorage.getItem('tl-theme3')
+      return saved === 'cyber' || saved === 'clear' ? saved : 'tactics'
     } catch {
-      return 'clear'
+      return 'tactics'
     }
   })
-  setPlain(theme === 'clear') // the Clear design uses plain names for everything
+  setPlain(theme !== 'cyber') // the Clear design uses plain names for everything
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
     const color = theme === 'cyber' ? '#07060f' : theme === 'tactics' ? '#14182b' : dark ? '#0d1015' : '#f3f5f9'
     document.querySelector('meta[name=theme-color]')?.setAttribute('content', color)
     try {
-      localStorage.setItem('tl-theme2', theme)
+      localStorage.setItem('tl-theme3', theme)
     } catch {
       /* ignore */
     }
@@ -107,7 +108,7 @@ export default function App() {
           <div className="sub">{isPlain() ? `Level ${level}` : `Commander · Lv ${level}`}</div>
         </div>
         <div className="hdr-right">
-          <button className="themebtn" onClick={() => setTheme(theme === 'clear' ? 'cyber' : theme === 'cyber' ? 'tactics' : 'clear')} aria-label={`Design: ${theme}. Tap to change`} title="Change the look: Clear, Neon, Tactics">
+          <button className="themebtn" onClick={() => setTheme(theme === 'tactics' ? 'clear' : theme === 'clear' ? 'cyber' : 'tactics')} aria-label={`Design: ${theme}. Tap to change`} title="Change the look: Clear, Neon, Tactics">
             {theme === 'clear' ? '◐ Clear' : theme === 'cyber' ? '◐ Neon' : '◐ Tactics'}
           </button>
           <button className={`themebtn sync-${sync.status}`} onClick={() => setSyncOpen(true)} aria-label={`Cloud sync: ${sync.status}`} title="Cloud sync and backup">
@@ -337,7 +338,7 @@ function Habits({ state, update }: { state: State; update: Update }) {
             add()
           }}
         >
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Study IELTS 1h" />
+          <MicInput value={name} onChange={setName} placeholder="e.g. Study IELTS 1h" />
           <select value={job} onChange={(e) => setJob(e.target.value as Job)}>
             {(Object.keys(JOBS) as Job[]).map((j) => (
               <option key={j} value={j}>
