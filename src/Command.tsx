@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { T } from './labels'
 import { parseCommand, type Parsed } from './parser'
 import { autoScheduleTasks, blocksFor, hhmm, slotHabits } from './scheduler'
 import { play } from './sfx'
@@ -153,7 +154,7 @@ export default function Command({ state, update }: { state: State; update: Updat
     <>
       <section className="panel">
         <h2>
-          Command
+          {T('Command')}
           <span className="seg inline">
             {(['vi-VN', 'en-US'] as const).map((l) => (
               <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)} disabled={listening}>
@@ -188,7 +189,7 @@ export default function Command({ state, update }: { state: State; update: Updat
 
       {items.length > 0 && (
         <section className="panel">
-          <h2>Confirm Orders</h2>
+          <h2>{T('Confirm Orders')}</h2>
           <ul className="list">
             {items.map(({ key, p }) => (
               <li key={key} className="cmd">
@@ -216,7 +217,7 @@ export default function Command({ state, update }: { state: State; update: Updat
 
       <section className="panel">
         <h2>
-          Turn Order
+          {T('Turn Order')}
           <span className="seg inline">
             <button onClick={() => setView(shiftDay(view, -1))} aria-label="Previous day">◀</button>
             <button className={view === dayKey() ? 'on' : ''} onClick={() => setView(dayKey())}>
@@ -258,7 +259,7 @@ export default function Command({ state, update }: { state: State; update: Updat
 
       {(unscheduled.length > 0 || noTimeHabits.length > 0) && (
         <section className="panel">
-          <h2>Auto-Organise</h2>
+          <h2>{T('Auto-Organise')}</h2>
           {unscheduled.length > 0 && (
             <>
               <ul className="list">

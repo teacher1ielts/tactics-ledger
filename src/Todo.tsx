@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { T } from './labels'
 import { TaskEditor } from './Edit'
 import { parseCommand } from './parser'
 import { hhmm } from './scheduler'
@@ -49,7 +50,7 @@ export default function Todo({ state, update, compact = false, onOpen }: { state
   return (
     <section className="panel">
       <h2>
-        To-Do
+        {T('To-Do')}
         <span className="chip">{open.length} open</span>
       </h2>
 

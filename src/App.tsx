@@ -34,6 +34,7 @@ import { dueKey, hasDebrief, useAlerts, useReminders } from './alerts'
 import { reviewSummary, weeklyReview } from './review'
 import { isMuted, play, setMuted, unlock } from './sfx'
 import SyncPanel from './SyncPanel'
+import { T, isPlain, setPlain } from './labels'
 import Todo from './Todo'
 import { useSync } from './sync'
 
@@ -43,18 +44,22 @@ type Update = (fn: (s: State) => State) => void
 export default function App() {
   const [state, setState] = useStore()
   const [tab, setTab] = useState<Tab>('camp')
-  const [theme, setTheme] = useState<'cyber' | 'tactics'>(() => {
+  const [theme, setTheme] = useState<'clear' | 'cyber' | 'tactics'>(() => {
     try {
-      return localStorage.getItem('tl-theme') === 'tactics' ? 'tactics' : 'cyber'
+      const saved = localStorage.getItem('tl-theme2')
+      return saved === 'cyber' || saved === 'tactics' ? saved : 'clear'
     } catch {
-      return 'cyber'
+      return 'clear'
     }
   })
+  setPlain(theme === 'clear') // the Clear design uses plain names for everything
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    document.querySelector('meta[name=theme-color]')?.setAttribute('content', theme === 'cyber' ? '#07060f' : '#14182b')
+    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const color = theme === 'cyber' ? '#07060f' : theme === 'tactics' ? '#14182b' : dark ? '#0d1015' : '#f3f5f9'
+    document.querySelector('meta[name=theme-color]')?.setAttribute('content', color)
     try {
-      localStorage.setItem('tl-theme', theme)
+      localStorage.setItem('tl-theme2', theme)
     } catch {
       /* ignore */
     }
@@ -99,11 +104,11 @@ export default function App() {
       <header className="top">
         <div>
           <div className="title">Tactics Ledger</div>
-          <div className="sub">Commander · Lv {level}</div>
+          <div className="sub">{isPlain() ? `Level ${level}` : `Commander · Lv ${level}`}</div>
         </div>
         <div className="hdr-right">
-          <button className="themebtn" onClick={() => setTheme(theme === 'cyber' ? 'tactics' : 'cyber')} aria-label="Switch theme" title="Switch theme">
-            {theme === 'cyber' ? '◐ NEON' : '◐ TACTICS'}
+          <button className="themebtn" onClick={() => setTheme(theme === 'clear' ? 'cyber' : theme === 'cyber' ? 'tactics' : 'clear')} aria-label={`Design: ${theme}. Tap to change`} title="Change the look: Clear, Neon, Tactics">
+            {theme === 'clear' ? '◐ Clear' : theme === 'cyber' ? '◐ Neon' : '◐ Tactics'}
           </button>
           <button className={`themebtn sync-${sync.status}`} onClick={() => setSyncOpen(true)} aria-label={`Cloud sync: ${sync.status}`} title="Cloud sync and backup">
             {sync.status === 'syncing' ? '↻' : sync.status === 'error' ? '⚠' : sync.status === 'idle' ? '☁✓' : '☁'}
@@ -121,18 +126,18 @@ export default function App() {
         {tab === 'camp' && <Camp state={state} update={update} debrief={debriefDue ? () => go('intel') : null} openTodo={() => go('command')} goTo={go} />}
         {tab === 'habits' && <Habits state={state} update={update} />}
         {tab === 'treasury' && <Treasury state={state} update={update} />}
-        {tab === 'map' && <WorldMap state={state} update={update} cyber={theme === 'cyber'} />}
+        {tab === 'map' && <WorldMap state={state} update={update} theme={theme} />}
         {tab === 'intel' && <Insights state={state} alerts={alerts} setAlerts={setAlerts} />}
         {tab === 'command' && <Command state={state} update={update} />}
       </main>
 
       <nav className="nav">
-        <NavBtn id="camp" cur={tab} set={go} label="Camp" icon="🏕️" />
-        <NavBtn id="habits" cur={tab} set={go} label="Battles" icon="⚔️" />
-        <NavBtn id="treasury" cur={tab} set={go} label="Treasury" icon="💰" />
-        <NavBtn id="map" cur={tab} set={go} label="Map" icon="🗺️" />
-        <NavBtn id="intel" cur={tab} set={go} label="Intel" icon="🔭" />
-        <NavBtn id="command" cur={tab} set={go} label="Command" icon="🎙️" />
+        <NavBtn id="camp" cur={tab} set={go} label={T('Camp')} icon="🏕️" />
+        <NavBtn id="habits" cur={tab} set={go} label={T('Battles')} icon="⚔️" />
+        <NavBtn id="treasury" cur={tab} set={go} label={T('Treasury')} icon="💰" />
+        <NavBtn id="map" cur={tab} set={go} label={T('Map')} icon="🗺️" />
+        <NavBtn id="intel" cur={tab} set={go} label={T('Intel')} icon="🔭" />
+        <NavBtn id="command" cur={tab} set={go} label={T('Command')} icon="🎙️" />
       </nav>
       {syncOpen && <SyncPanel sync={sync} state={state} setState={setState} close={() => setSyncOpen(false)} />}
       {fb.bursts[0] && <BurstOverlay key={fb.bursts[0].id} b={fb.bursts[0]} onDone={fb.next} />}
@@ -154,7 +159,7 @@ function Panel(p: { title?: string; children: React.ReactNode; right?: React.Rea
     <section className="panel">
       {p.title && (
         <h2>
-          {p.title}
+          {T(p.title)}
           {p.right}
         </h2>
       )}
@@ -227,9 +232,9 @@ function Camp({ state, update, debrief, openTodo, goTo }: { state: State; update
 
       {debrief && rv && (
         <Panel title="Weekly Debrief">
-          <p style={{ margin: 0 }}>Your weekly debrief is ready. {reviewSummary(rv)}</p>
+          <p style={{ margin: 0 }}>Your weekly {isPlain() ? 'review' : 'debrief'} is ready. {reviewSummary(rv)}</p>
           <button className="btn" style={{ marginTop: 10 }} onClick={debrief}>
-            Open debrief
+            {isPlain() ? 'Open review' : 'Open debrief'}
           </button>
         </Panel>
       )}

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { T } from './labels'
 import { RecurringEditor, TxEditor } from './Edit'
 import ImportPanel from './ImportPanel'
 import { INCOME_CATS, IMPORTED, SPEND_CATS, dayKey, parseVnd, postRecurring, repeatLabel, uid, vnd, type Recurring, type State, type Tx, type TxType } from './store'
@@ -10,7 +11,7 @@ function Panel(p: { title?: string; children: ReactNode; right?: ReactNode }) {
     <section className="panel">
       {p.title && (
         <h2>
-          {p.title}
+          {T(p.title)}
           {p.right}
         </h2>
       )}

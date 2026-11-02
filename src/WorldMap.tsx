@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { T } from './labels'
 import { GoalEditor } from './Edit'
 import { JOBS, dayKey, partyOf, goalProgress, parseVnd, uid, vnd, type Goal, type GoalKind, type Job, type State } from './store'
 
@@ -30,7 +31,10 @@ const daysLeft = (g: Goal) =>
 const amountText = (g: Goal, cur: number, target: number) =>
   g.kind === 'savings' ? `${vnd(cur)} / ${vnd(target)}` : g.kind === 'habit' ? `${cur} / ${target} clears${g.period ? ' this week' : ''}` : `${cur} / ${target} milestones`
 
-export default function WorldMap({ state, update, cyber }: { state: State; update: Update; cyber: boolean }) {
+export default function WorldMap({ state, update, theme }: { state: State; update: Update; theme: 'clear' | 'cyber' | 'tactics' }) {
+  const cyber = theme === 'cyber'
+  const clear = theme === 'clear'
+  const [show3d, setShow3d] = useState(false)
   const [sel, setSel] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [flat, setFlat] = useState(false)
@@ -48,7 +52,8 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
 
   const goals = [...state.goals].sort((a, b) => (a.term === b.term ? 0 : a.term === 'short' ? -1 : 1))
   const selected = goals.find((g) => g.id === sel) ?? null
-  const use3d = cyber && !flat && goals.length > 0
+  const use3d = (cyber || (clear && show3d)) && !flat && goals.length > 0
+  const listView = clear && !show3d && goals.length > 0
   const party = partyOf(state)
 
   const W = 360
@@ -65,7 +70,7 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
     <>
       <section className="panel">
         <h2>
-          World Map
+          {T('World Map')}
           <span className="row" style={{ flex: 'none' }}>
             {use3d && (
               <button
@@ -88,8 +93,13 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
                 {flat ? '3D' : '2D'}
               </button>
             )}
+            {clear && goals.length > 0 && (
+              <button className="btn small" onClick={() => { setShow3d((v) => !v); setFlat(false) }}>
+                {show3d ? 'List' : '3D view'}
+              </button>
+            )}
             <button className="btn small" onClick={() => setAdding((a) => !a)}>
-              {adding ? 'Close' : '+ Quest'}
+              {adding ? 'Close' : clear ? '+ Goal' : '+ Quest'}
             </button>
           </span>
         </h2>
@@ -105,8 +115,32 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
             />
           </Suspense>
         )}
-        {goals.length === 0 && <p className="muted">The map is blank. Chart your first quest: a short-term skirmish or a long-term castle.</p>}
-        {goals.length > 0 && !use3d && (
+        {goals.length === 0 && <p className="muted">{clear ? 'No goals yet. Tap "+ Goal" to add one: a short-term target or a long-term one.' : 'The map is blank. Chart your first quest: a short-term skirmish or a long-term castle.'}</p>}
+        {listView && (
+          <div>
+            {goals.map((g) => {
+              const p = goalProgress(g, state)
+              const done = p.pct >= 1 && !g.period
+              const left = daysLeft(g)
+              return (
+                <button key={g.id} className={`goal-card ${sel === g.id ? 'sel' : ''} ${done ? 'done' : ''}`} onClick={() => setSel(sel === g.id ? null : g.id)}>
+                  <span className="goal-top">
+                    <b>{g.name}</b>
+                    <span className="goal-pct">{done ? 'Done ✓' : `${Math.round(p.pct * 100)}%`}</span>
+                  </span>
+                  <span className="bar">
+                    <span className="bar-fill" style={{ width: `${p.pct * 100}%` }} />
+                  </span>
+                  <small className="muted">
+                    {g.term === 'long' ? 'Long-term' : 'Short-term'} · {amountText(g, p.cur, p.target)}
+                    {left !== null ? (left >= 0 ? ` · ${left} days left` : ` · ${-left} days overdue`) : ''}
+                  </small>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {goals.length > 0 && !use3d && !listView && (
           <svg viewBox={`0 0 ${W} ${H}`} className="map" role="img" aria-label="World map of goals">
             <path d={road} className="road" />
             {goals.map((g, i) => {
@@ -134,7 +168,7 @@ export default function WorldMap({ state, update, cyber }: { state: State; updat
       </section>
 
       <section className="panel">
-        <h2>Your Party</h2>
+        <h2>{T('Your Party')}</h2>
         <div className="party">
           {party.map((p) => (
             <div key={p.job} className="hero">
@@ -199,7 +233,7 @@ function GoalForm({ state, update, done }: { state: State; update: Update; done:
 
   return (
     <section className="panel">
-      <h2>Chart a Quest</h2>
+      <h2>{T('Chart a Quest')}</h2>
       <form
         className="stack"
         onSubmit={(e) => {

@@ -1,4 +1,5 @@
 import Debrief from './Debrief'
+import { T } from './labels'
 import type { Alerts } from './alerts'
 import { JOBS, dayKey, shiftDay, vnd, type Habit, type State } from './store'
 
@@ -22,7 +23,7 @@ function longestStreak(h: Habit): number {
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="panel">
-      <h2>{title}</h2>
+      <h2>{T(title)}</h2>
       {children}
     </section>
   )

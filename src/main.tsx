@@ -6,12 +6,14 @@ import ErrorBoundary from './ErrorBoundary'
 import './styles.css'
 import './cyber.css'
 import './fx.css'
+import './clear.css'
 
 // apply the saved theme before the first paint (also used by the crash screen)
 try {
-  document.documentElement.dataset.theme = localStorage.getItem('tl-theme') === 'tactics' ? 'tactics' : 'cyber'
+  const saved = localStorage.getItem('tl-theme2')
+  document.documentElement.dataset.theme = saved === 'cyber' || saved === 'tactics' ? saved : 'clear'
 } catch {
-  document.documentElement.dataset.theme = 'cyber'
+  document.documentElement.dataset.theme = 'clear'
 }
 
 registerSW({ immediate: true })

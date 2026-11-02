@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { T } from './labels'
 import { canNotify, dueKey, notify, notifSupport, type Alerts } from './alerts'
 import { buildIcs, downloadIcs } from './ics'
 import { reviewLines, reviewSummary, weeklyReview } from './review'
@@ -24,7 +25,7 @@ export default function Debrief({ state, alerts, setAlerts }: { state: State; al
   return (
     <section className="panel">
       <h2>
-        Weekly Debrief
+        {T('Weekly Debrief')}
         <span className={`grade g${r.grade}`} aria-label={`Grade ${r.grade}`}>
           {r.grade}
         </span>

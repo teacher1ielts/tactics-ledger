@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { T } from './labels'
 import { extractText } from './extract'
 import { looksLikeCard, parseStatement, type StatementRow } from './statement'
 import { silence } from './feedback'
@@ -122,7 +123,7 @@ export default function ImportPanel({ state, update }: { state: State; update: U
 
   return (
     <section className="panel">
-      <h2>Import from Bank</h2>
+      <h2>{T('Import from Bank')}</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Upload a bank or credit card statement (PDF) or a screenshot, straight from your phone's Files or Photos. It is read on this device and never uploaded, and you review every row before it is saved.
       </p>
