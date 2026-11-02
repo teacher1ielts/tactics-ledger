@@ -37,6 +37,7 @@ import { isMuted, play, setMuted, unlock } from './sfx'
 import SyncPanel from './SyncPanel'
 import { T, isPlain, setPlain } from './labels'
 import Todo from './Todo'
+import ArchetypePanel from './Archetype'
 import { useSync } from './sync'
 
 type Tab = 'camp' | 'habits' | 'treasury' | 'map' | 'intel' | 'command'
@@ -272,6 +273,8 @@ function Camp({ state, update, debrief, openTodo, goTo }: { state: State; update
           <p className="muted">Tip: in Command you can type things like "gym at 6pm, lunch 80k" or "goal 2 muay thai a week".</p>
         </Panel>
       )}
+
+      <ArchetypePanel state={state} compact onOpen={() => goTo('map')} />
 
       <Todo state={state} update={update} compact onOpen={openTodo} />
 

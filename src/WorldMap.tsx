@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import MicInput from './MicInput'
 import { T, isPlain } from './labels'
+import ArchetypePanel from './Archetype'
 import { GoalEditor } from './Edit'
 import { JOBS, dayKey, partyOf, goalProgress, parseVnd, uid, vnd, type Goal, type GoalKind, type Job, type State } from './store'
 
@@ -167,6 +168,8 @@ export default function WorldMap({ state, update, theme }: { state: State; updat
           </svg>
         )}
       </section>
+
+      <ArchetypePanel state={state} />
 
       <section className="panel">
         <h2>{T('Your Party')}</h2>

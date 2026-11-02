@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { play } from './sfx'
+import { archetypeOf } from './archetypes'
 import { GEAR, goalDone, levelOf, partyOf, xpOf, type State } from './store'
 
 /** Set before applying data that arrived from the cloud, so it is absorbed without celebrations. */
@@ -19,6 +20,7 @@ interface Peak {
   level: number
   heroes: Record<string, { level: number; tier: number }>
   goals: string[]
+  forms: string[]
 }
 const KEY = 'tl-peak'
 
@@ -27,6 +29,7 @@ function snapshot(s: State): Peak {
     level: levelOf(xpOf(s)).level,
     heroes: Object.fromEntries(partyOf(s).map((p) => [p.job, { level: p.level, tier: p.tier }])),
     goals: s.goals.filter((g) => goalDone(g, s)).map((g) => g.id),
+    forms: archetypeOf(s).titles,
   }
 }
 function readPeak(): Peak | null {
@@ -47,6 +50,7 @@ const merge = (a: Peak | null, b: Peak): Peak => ({
   level: Math.max(a?.level ?? 0, b.level),
   heroes: Object.fromEntries(Object.keys(b.heroes).map((j) => [j, { level: Math.max(a?.heroes?.[j]?.level ?? 0, b.heroes[j].level), tier: Math.max(a?.heroes?.[j]?.tier ?? 0, b.heroes[j].tier) }])),
   goals: [...new Set([...(a?.goals ?? []), ...b.goals])],
+  forms: [...new Set([...(a?.forms ?? []), ...b.forms])],
 })
 
 /**
@@ -89,6 +93,8 @@ export function useFeedback(state: State) {
       if (p.tier > old.tier) found.push({ id: id(), kind: 'rank', title: 'RANK UP', sub: `${p.job.toUpperCase()} → ${p.rank}  ·  ${GEAR[p.tier]} unlocked`, color: COLOR[p.job] })
       else if (p.level > old.level) found.push({ id: id(), kind: 'hero', title: 'LEVEL UP', sub: `${p.job.toUpperCase()} reached Lv ${p.level}`, color: COLOR[p.job] })
     }
+    const known = pk.forms ?? []
+    for (const f of snap.forms) if (!known.includes(f)) found.push({ id: id(), kind: 'rank', title: 'EVOLVED', sub: `You are now a ${f}`, color: '#fcee0a' })
     for (const g of state.goals) {
       if (goalDone(g, state) && !pk.goals.includes(g.id)) found.push({ id: id(), kind: 'quest', title: 'QUEST COMPLETE', sub: g.name, color: '#fcee0a' })
     }

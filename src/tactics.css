@@ -54,3 +54,8 @@
 [data-theme='tactics'] .goal-card.done .goal-pct { color: var(--pos); }
 [data-theme='tactics'] .goal-card .bar { display: block; margin: 0; }
 [data-theme='tactics'] .goal-card .bar-fill { display: block; height: 100%; }
+[data-theme='tactics'] .arch-head, [data-theme='clear'] .arch-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.arch-icon { font-size: 2rem; line-height: 1; }
+.arch-name { font-size: 1.25rem; display: block; }
+.arch-paths { display: grid; gap: 14px; margin: 8px 0; }
+.arch-open { display: grid; gap: 4px; text-align: left; width: 100%; background: none; border: 0; padding: 0; color: inherit; font-family: inherit; }
