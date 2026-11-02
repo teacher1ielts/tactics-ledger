@@ -64,13 +64,13 @@
 .legend { font-size: 0.85rem; margin: 2px 0 12px; }
 .codex-h { margin: 16px 0 8px; font-size: 1.05rem; display: flex; justify-content: space-between; align-items: baseline; }
 .codex { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.cx { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 74px; padding: 6px 2px; border: 2px solid var(--gold-dim); background: rgba(0, 0, 0, 0.25); color: var(--text); font-family: inherit; border-radius: 4px; }
+.cx { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 74px; padding: 6px 2px; border: 2px solid var(--gold-dim); background: var(--surface-2, rgba(0, 0, 0, 0.25)); color: var(--text); font-family: inherit; border-radius: 4px; }
 .cx-i { font-size: 1.4rem; line-height: 1.1; }
 .cx-n { font-size: 0.72rem; text-align: center; line-height: 1.15; overflow-wrap: anywhere; }
-.cx.got { border-color: var(--gold); background: rgba(240, 195, 90, 0.14); }
+.cx.got { border-color: var(--gold); background: color-mix(in srgb, var(--gold) 18%, var(--surface, #1b2552)); }
 .cx.hint { border-style: dashed; color: var(--muted); }
-.cx.lock { opacity: 0.45; border-style: dotted; }
+.cx.lock { opacity: 0.55; border-style: dotted; }
 .cx.new { animation: cxglow 1.6s ease-in-out infinite; }
-.cx-new { position: absolute; top: -7px; right: -4px; background: var(--gold); color: #1a1405; font-size: 0.62rem; font-weight: 800; padding: 1px 5px; border-radius: 3px; }
+.cx-new { position: absolute; top: -7px; right: -4px; background: var(--gold); color: var(--on-accent, #1a1405); font-size: 0.62rem; font-weight: 800; padding: 1px 5px; border-radius: 3px; }
 @keyframes cxglow { 50% { box-shadow: 0 0 12px 2px var(--gold); } }
 .codex-detail { margin: 10px 0 0; font-size: 0.95rem; }
