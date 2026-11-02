@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { play } from './sfx'
-import { archetypeOf } from './archetypes'
+import { FLAVOR, archetypeOf } from './archetypes'
 import { GEAR, goalDone, levelOf, partyOf, xpOf, type State } from './store'
 
 /** Set before applying data that arrived from the cloud, so it is absorbed without celebrations. */
@@ -94,7 +94,7 @@ export function useFeedback(state: State) {
       else if (p.level > old.level) found.push({ id: id(), kind: 'hero', title: 'LEVEL UP', sub: `${p.job.toUpperCase()} reached Lv ${p.level}`, color: COLOR[p.job] })
     }
     const known = pk.forms ?? []
-    for (const f of snap.forms) if (!known.includes(f)) found.push({ id: id(), kind: 'rank', title: 'EVOLVED', sub: `You are now a ${f}`, color: '#fcee0a' })
+    for (const f of snap.forms) if (!known.includes(f)) found.push({ id: id(), kind: 'rank', title: 'EVOLVED', sub: `You discovered: ${f}  ·  ${FLAVOR[f] ?? ''}`, color: '#fcee0a' })
     for (const g of state.goals) {
       if (goalDone(g, state) && !pk.goals.includes(g.id)) found.push({ id: id(), kind: 'quest', title: 'QUEST COMPLETE', sub: g.name, color: '#fcee0a' })
     }
