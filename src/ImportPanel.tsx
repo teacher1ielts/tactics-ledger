@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { extractText } from './extract'
-import { parseStatement, type StatementRow } from './statement'
+import { looksLikeCard, parseStatement, type StatementRow } from './statement'
 import { silence } from './feedback'
 import { INCOME_CATS, IMPORTED, SPEND_CATS, byNewest, isImported, persistState, uid, vnd, type State, type Tx } from './store'
 
@@ -14,17 +14,22 @@ export default function ImportPanel({ state, update }: { state: State; update: U
   const [msg, setMsg] = useState('')
   const [paste, setPaste] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [card, setCard] = useState(false)
+  const [pw, setPw] = useState<{ file: string; wrong: boolean; resolve: (p: string | null) => void } | null>(null)
+  const [pwText, setPwText] = useState('')
+  const askPassword = (file: string, wrong: boolean) => new Promise<string | null>((resolve) => setPw({ file, wrong, resolve }))
 
   const existing = new Set(state.txs.map((t) => `${t.date}|${t.type}|${t.amount}`))
   const markDup = (r: StatementRow): Row => {
     const dup = existing.has(`${r.date}|${r.type}|${r.amount}`)
-    return { ...r, dup, on: !dup && r.sure }
+    return { ...r, dup, on: !dup && r.sure && !r.skip }
   }
 
   const ingest = (text: string, source: string) => {
-    const found = parseStatement(text).map(markDup)
-    if (found.length === 0) setMsg(`No transactions found in ${source}. Try a clearer image, or paste the text.`)
-    else setMsg('')
+    const asCard = card || looksLikeCard(text)
+    const found = parseStatement(text, new Date(), { card: asCard }).map(markDup)
+    if (found.length === 0) setMsg(`No transactions found in ${source}. Try a clearer image or the PDF, or paste the text.`)
+    else setMsg(asCard ? 'Read as a credit card statement: purchases count as spending, and payments to the card are left unticked.' : '')
     setRows((prev) => [...prev, ...found])
   }
 
@@ -33,7 +38,7 @@ export default function ImportPanel({ state, update }: { state: State; update: U
     setMsg('')
     try {
       for (const f of Array.from(files)) {
-        const text = await extractText(f, setBusy)
+        const text = await extractText(f, setBusy, askPassword)
         ingest(text, f.name)
       }
     } catch (e) {
@@ -104,6 +109,7 @@ export default function ImportPanel({ state, update }: { state: State; update: U
   const out = picked.filter((r) => r.type === 'spend').reduce((a, r) => a + r.amount, 0)
 
   const commit = () => {
+    silence.on = true // a statement full of transactions is not a string of level-ups
     update((s) => ({
       ...s,
       txs: [...picked.map((r) => ({ id: uid(), date: r.date, type: r.type, amount: r.amount, category: r.category, note: r.desc })), ...s.txs],
@@ -118,12 +124,41 @@ export default function ImportPanel({ state, update }: { state: State; update: U
     <section className="panel">
       <h2>Import from Bank</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Add statement PDFs or screenshots of your banking app. They are read on this device and never uploaded. You review every row before it is saved.
+        Upload a bank or credit card statement (PDF) or a screenshot, straight from your phone's Files or Photos. It is read on this device and never uploaded, and you review every row before it is saved.
       </p>
       <label className="btn filebtn">
-        Choose PDF / screenshots
+        Upload statement (PDF or photo)
         <input type="file" accept="application/pdf,image/*" multiple hidden onChange={(e) => { void onFiles(e.target.files); e.target.value = '' }} />
       </label>
+      <label className="row alert-row" style={{ marginTop: 8 }}>
+        <input type="checkbox" checked={card} onChange={(e) => setCard(e.target.checked)} />
+        <span>This is a credit card statement (also detected automatically)</span>
+      </label>
+      {pw && (
+        <form
+          className="stack"
+          style={{ marginTop: 8 }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            pw.resolve(pwText)
+            setPw(null)
+            setPwText('')
+          }}
+        >
+          <p className={pw.wrong ? 'neg' : 'muted'} style={{ margin: 0 }}>
+            {pw.wrong ? 'That password did not work. Try again:' : `${pw.file} is password-protected. Enter its password (it is not stored):`}
+          </p>
+          <input type="password" value={pwText} onChange={(e) => setPwText(e.target.value)} autoComplete="off" autoFocus aria-label="PDF password" />
+          <div className="row">
+            <button className="btn" type="submit" disabled={!pwText}>
+              Open
+            </button>
+            <button className="btn danger" type="button" style={{ marginTop: 0 }} onClick={() => { pw.resolve(null); setPw(null); setPwText('') }}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
       <details className="paste">
         <summary>Or paste statement text</summary>
         <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={4} placeholder={'25/10/2026 Luong thang 10 +15.000.000\n26/10/2026 Highlands Coffee -45.000'} />
@@ -188,7 +223,7 @@ export default function ImportPanel({ state, update }: { state: State; update: U
                     ))}
                   </select>
                 </div>
-                {(r.dup || !r.sure) && <small className="warn">{r.dup ? 'Looks like a duplicate of one you already have' : 'In or out unclear: check the badge'}</small>}
+                {(r.dup || !r.sure || r.hint) && <small className="warn">{r.dup ? 'Looks like a duplicate of one you already have' : r.hint ?? 'In or out unclear: check the badge'}</small>}
               </div>
             ))}
           </div>
